@@ -13,13 +13,13 @@ from rich.tree import Tree
 from core.state import AgentState, PlanStep
 
 
-class NexusDisplay:
+class DaemonDisplay:
     def __init__(self) -> None:
         self.console = Console()
         self.banner_panel: Panel | None = None
         self.status_message = "Idle"
         self.plan_steps: list[dict[str, Any]] = []
-        self.task_name = "Nexus Task"
+        self.task_name = "Daemon Task"
         self.event_panels: list[Panel] = []
         self.progress = Progress(
             TextColumn("{task.description}"),
@@ -34,7 +34,7 @@ class NexusDisplay:
 
     def show_banner(self) -> None:
         self.banner_panel = Panel(
-            Text("NEXUS AGENT", style="bold white", justify="center"),
+            Text("DAEMON", style="bold white", justify="center"),
             border_style="cyan",
         )
         self._refresh()
@@ -106,7 +106,7 @@ class NexusDisplay:
 
     def show_summary(self, state: AgentState) -> None:
         self.close()
-        table = Table(title="Nexus Agent Summary")
+        table = Table(title="Daemon Summary")
         table.add_column("Field", style="cyan")
         table.add_column("Value", style="white")
         table.add_row("Task", state.task)

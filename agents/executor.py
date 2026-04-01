@@ -39,7 +39,8 @@ class Executor:
         return updated_step
 
     def _execute_create_dir(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
-        relative_path = step["args"].get("path", "")
+        relative_path = self._normalize_workspace_path_arg(step["args"].get("path", ""), state)
+        step["args"]["path"] = relative_path
         try:
             if create_dir(path=relative_path, workspace=state.workspace_dir):
                 step["status"] = "done"
@@ -53,7 +54,8 @@ class Executor:
         return step
 
     def _execute_write_file(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
-        path = str(step["args"].get("path", ""))
+        path = self._normalize_workspace_path_arg(step["args"].get("path", ""), state)
+        step["args"]["path"] = path
         content = str(step["args"].get("content", ""))
 
         if self._content_looks_incomplete(content):
@@ -68,6 +70,23 @@ class Executor:
             step["status"] = "failed"
             step["output"] = f"Failed to write file: {path}"
         return step
+
+    @staticmethod
+    def _normalize_workspace_path_arg(path_value: Any, state: AgentState) -> str:
+        raw_path = str(path_value or "").strip()
+        if not raw_path:
+            return ""
+
+        candidate = Path(raw_path)
+        if not candidate.is_absolute():
+            return raw_path
+
+        workspace = Path(state.workspace_dir).resolve()
+        resolved = candidate.resolve()
+        try:
+            return str(resolved.relative_to(workspace))
+        except ValueError:
+            return raw_path
 
     def _execute_run_command(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
         command = str(step["args"].get("command", ""))

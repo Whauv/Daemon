@@ -1,5 +1,11 @@
 __pycache__/
 *.py[cod]
 nexus_session_log.json
+daemon_session_log.json
 .venv/
 venv/
+.env
+workspace/
+tmp_phase4/
+sqlalchemy.db
+*.db
