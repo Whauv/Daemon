@@ -14,6 +14,12 @@ class NexusDisplay:
     def __init__(self) -> None:
         self.console = Console()
 
+    def show_banner(self) -> None:
+        self.console.print(Panel("[bold cyan]Nexus Agent[/bold cyan]", border_style="cyan"))
+
+    def show_status(self, message: str) -> None:
+        self.console.print(f"[bold blue]{message}[/bold blue]")
+
     def show_plan(self, steps: list[PlanStep | dict[str, Any]], title: str = "Execution Plan") -> None:
         tree = Tree(f"[bold cyan]{title}[/bold cyan]")
         for step in steps:
@@ -23,21 +29,37 @@ class NexusDisplay:
             )
         self.console.print(tree)
 
-    def show_step_start(self, step: PlanStep, iteration: int, max_iterations: int) -> None:
+    def show_step_start(self, step: PlanStep | dict[str, Any]) -> None:
+        normalized = step if isinstance(step, dict) else step.model_dump()
         self.console.print(
             Panel(
-                f"[bold]{step.title}[/bold]\n{step.description}\nIteration {iteration}/{max_iterations}",
-                title=f"Running {step.id}",
+                f"[bold]{normalized['title']}[/bold]\n{normalized['description']}",
+                title=f"Running {normalized['id']}",
                 border_style="blue",
             )
         )
 
-    def show_step_result(self, step: PlanStep, result: ExecutionResult) -> None:
-        status = "[green]SUCCESS[/green]" if result.success else "[red]FAILED[/red]"
-        body = result.output or result.error or "No output."
+    def show_step_done(self, step: PlanStep | dict[str, Any]) -> None:
+        normalized = step if isinstance(step, dict) else step.model_dump()
         self.console.print(
-            Panel(body, title=f"{step.id} {status}", border_style="green" if result.success else "red")
+            Panel(normalized.get("output", "Completed."), title=f"{normalized['id']} DONE", border_style="green")
         )
+
+    def show_step_failed(self, step: PlanStep | dict[str, Any]) -> None:
+        normalized = step if isinstance(step, dict) else step.model_dump()
+        self.console.print(
+            Panel(normalized.get("output", "Failed."), title=f"{normalized['id']} FAILED", border_style="red")
+        )
+
+    def show_success(self, summary: str) -> None:
+        self.console.print(Panel(summary, title="Success", border_style="green"))
+
+    def show_issues(self, issues: list[str]) -> None:
+        issue_text = "\n".join(f"- {issue}" for issue in issues) if issues else "No issues reported."
+        self.console.print(Panel(issue_text, title="Issues", border_style="yellow"))
+
+    def show_fatal_error(self, message: str) -> None:
+        self.console.print(Panel(message, title="Fatal Error", border_style="red"))
 
     def log(self, message: str) -> None:
         self.console.print(f"[yellow]LOG:[/yellow] {message}")

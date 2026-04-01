@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from config import settings
-from core.loop import NexusLoop
+from core.loop import run
 from ui.display import NexusDisplay
 
 
@@ -35,11 +35,8 @@ def main() -> None:
     if not task:
         raise SystemExit("A task is required.")
 
-    display = NexusDisplay()
-    orchestrator = NexusLoop(display=display, workspace=Path(args.workspace))
-    final_state = orchestrator.run(task=task, max_iterations=args.max_iterations)
-
-    display.show_summary(final_state)
+    final_state = run(task=task, workspace_dir=str(Path(args.workspace).resolve()))
+    NexusDisplay().show_summary(final_state)
 
 
 if __name__ == "__main__":

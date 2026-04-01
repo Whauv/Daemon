@@ -36,8 +36,6 @@ class Executor:
             state.completed_steps.append(updated_step)
         else:
             state.failed_steps.append(updated_step)
-
-        state.current_step_index += 1
         return updated_step
 
     def _execute_create_dir(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:

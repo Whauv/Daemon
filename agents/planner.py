@@ -53,6 +53,56 @@ class Planner:
         self.display.show_plan(steps, title="Generated Plan")
         return steps
 
+    def replan_step(self, failed_step: dict[str, Any], state: Any) -> dict[str, Any]:
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Original task: {state.task}\n"
+                    f"Workspace directory: {state.workspace_dir}\n"
+                    f"Failed step: {failed_step}\n"
+                    f"Completed steps: {state.completed_steps}\n"
+                    "Return one corrected replacement step."
+                ),
+            }
+        ]
+        response = call_llm(
+            messages=messages,
+            system_prompt=PLANNER_SYSTEM_PROMPT,
+            temperature=0.2,
+            json_output=True,
+        )
+        payload = PlanResponse.model_validate_json(response["choices"][0]["message"]["content"])
+        if not payload.steps:
+            raise ValueError("Replan response did not include any steps.")
+        replacement = self._validate_step(payload.steps[0])
+        replacement["id"] = failed_step["id"]
+        return replacement
+
+    def generate_patch_plan(self, issues: list[str], state: Any) -> list[dict[str, Any]]:
+        messages = [
+            {
+                "role": "user",
+                "content": (
+                    f"Original task: {state.task}\n"
+                    f"Workspace directory: {state.workspace_dir}\n"
+                    f"Completed steps: {state.completed_steps}\n"
+                    f"Known issues: {issues}\n"
+                    "Return an ordered patch plan to fix only these issues."
+                ),
+            }
+        ]
+        response = call_llm(
+            messages=messages,
+            system_prompt=PLANNER_SYSTEM_PROMPT,
+            temperature=0.2,
+            json_output=True,
+        )
+        payload = PlanResponse.model_validate_json(response["choices"][0]["message"]["content"])
+        steps = [self._validate_step(step) for step in payload.steps]
+        self._ensure_final_verify_step(steps)
+        return steps
+
     def _validate_step(self, step: PlanStep) -> dict[str, Any]:
         validated_step = PlanStep.model_validate(step.model_dump())
         self._validate_step_args(validated_step)
