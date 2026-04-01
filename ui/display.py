@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -12,10 +14,13 @@ class NexusDisplay:
     def __init__(self) -> None:
         self.console = Console()
 
-    def show_plan(self, steps: list[PlanStep], title: str = "Execution Plan") -> None:
+    def show_plan(self, steps: list[PlanStep | dict[str, Any]], title: str = "Execution Plan") -> None:
         tree = Tree(f"[bold cyan]{title}[/bold cyan]")
         for step in steps:
-            tree.add(f"[green]{step.id}[/green] {step.title} ({step.action})")
+            normalized = step if isinstance(step, dict) else step.model_dump()
+            tree.add(
+                f"[green]{normalized['id']}[/green] {normalized['title']} ({normalized['type']})"
+            )
         self.console.print(tree)
 
     def show_step_start(self, step: PlanStep, iteration: int, max_iterations: int) -> None:
@@ -41,11 +46,10 @@ class NexusDisplay:
         table = Table(title="Nexus Agent Summary")
         table.add_column("Field", style="cyan")
         table.add_column("Value", style="white")
-        table.add_row("Task", state.original_task)
-        table.add_row("Workspace", state.workspace)
+        table.add_row("Task", state.task)
+        table.add_row("Workspace", state.workspace_dir)
         table.add_row("Status", state.status)
-        table.add_row("Iterations", str(state.iteration))
         table.add_row("Completed steps", str(len(state.completed_steps)))
         table.add_row("Failed steps", str(len(state.failed_steps)))
-        table.add_row("Last verification", state.last_verification or "n/a")
+        table.add_row("Retries", str(state.retries))
         self.console.print(table)
