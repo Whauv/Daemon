@@ -1,77 +1,59 @@
 from __future__ import annotations
 
-from textwrap import dedent
+import json
+from typing import Any
 
-from core.groq_client import GroqClientManager
-from core.state import ExecutionResult, PlanStep
+from core.groq_client import call_llm
+from core.state import AgentState
 
 
-class TaskVerifier:
-    def __init__(self) -> None:
-        self.client = GroqClientManager()
-
-    def verify_step(self, step: PlanStep, result: ExecutionResult) -> tuple[bool, str]:
-        if not result.success:
-            return False, result.error or "Step execution failed."
-
-        if step.action == "shell" and result.exit_code not in (None, 0):
-            return False, f"Command exited with code {result.exit_code}"
-
-        if step.action == "verify":
-            return True, result.output or "Verification step completed."
-
-        prompt = dedent(
-            f"""
-            Determine whether this execution step completed successfully.
-
-            Step:
-            {step.model_dump_json(indent=2)}
-
-            Result:
-            {result.model_dump_json(indent=2)}
-
-            Return strict JSON:
-            {{
-              "complete": true,
-              "reason": "short explanation"
-            }}
-            """
-        ).strip()
-
+class Verifier:
+    def verify_step(self, step: dict[str, Any], state: AgentState) -> tuple[bool, str]:
+        prompt = (
+            "Decide whether this execution step is complete.\n"
+            f"Task: {state.task}\n"
+            f"Workspace: {state.workspace_dir}\n"
+            f"Step: {step}\n"
+            f"Completed steps: {state.completed_steps}\n"
+            'Return strict JSON with {"complete": true, "reason": "short explanation"} only.'
+        )
         try:
-            payload = self.client.complete_json(
-                system_prompt="You verify local task execution results. Return strict JSON only.",
-                user_prompt=prompt,
+            response = call_llm(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt="You verify local agent execution. Return JSON only.",
+                json_output=True,
             )
+            payload = self.extract_json(response["choices"][0]["message"]["content"])
             return bool(payload.get("complete")), str(payload.get("reason", "No reason provided."))
-        except Exception:
-            return True, "Execution completed and heuristic checks passed."
+        except Exception as exc:
+            return False, f"Verification failed: {exc}"
 
-    def verify_task(self, task: str, completed_steps: list[PlanStep]) -> tuple[bool, str]:
-        if not completed_steps:
-            return False, "No steps were completed."
-
-        prompt = dedent(
-            f"""
-            Determine whether the original task is complete.
-
-            Task: {task}
-            Completed steps:
-            {[step.model_dump() for step in completed_steps]}
-
-            Return strict JSON:
-            {{
-              "complete": true,
-              "reason": "short explanation"
-            }}
-            """
-        ).strip()
-
+    def verify_task(self, task: str, completed_steps: list[dict[str, Any]]) -> tuple[bool, str]:
+        prompt = (
+            "Decide whether the overall task is complete.\n"
+            f"Task: {task}\n"
+            f"Completed steps: {completed_steps}\n"
+            'Return strict JSON with {"complete": true, "reason": "short explanation"} only.'
+        )
         try:
-            payload = self.client.complete_json(
-                system_prompt="You decide whether a task is complete. Return strict JSON only.",
-                user_prompt=prompt,
+            response = call_llm(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt="You verify whether a task is fully complete. Return JSON only.",
+                json_output=True,
             )
+            payload = self.extract_json(response["choices"][0]["message"]["content"])
             return bool(payload.get("complete")), str(payload.get("reason", "No reason provided."))
-        except Exception:
-            return completed_steps[-1].action == "verify", "Fallback task verification completed."
+        except Exception as exc:
+            return False, f"Task verification failed: {exc}"
+
+    @staticmethod
+    def extract_json(content: str) -> dict[str, Any]:
+        text = content.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if len(lines) >= 3:
+                text = "\n".join(lines[1:-1]).strip()
+        return json.loads(text)
+
+
+TaskVerifier = Verifier

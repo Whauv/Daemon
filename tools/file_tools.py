@@ -33,6 +33,15 @@ def write_file(path: str, content: str, workspace: str) -> bool:
         return False
 
 
+def create_dir(path: str, workspace: str) -> bool:
+    try:
+        target = _resolve_workspace_path(path, workspace)
+        target.mkdir(parents=True, exist_ok=True)
+        return True
+    except Exception:
+        return False
+
+
 def read_file(path: str, workspace: str) -> str:
     try:
         target = _resolve_workspace_path(path, workspace)
