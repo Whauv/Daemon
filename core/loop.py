@@ -27,7 +27,7 @@ def run(task: str, workspace_dir: str) -> AgentState:
     display.show_status("Planning task...")
     state.plan = planner.generate_plan(task, state.workspace_dir)
     state.status = "executing"
-    display.show_plan(state.plan)
+    display.show_plan(state.plan, task_name=state.task)
 
     while state.current_step_index < len(state.plan):
         step = state.plan[state.current_step_index]
@@ -65,6 +65,7 @@ def run(task: str, workspace_dir: str) -> AgentState:
                 patch_plan = planner.generate_patch_plan(result["issues"], state)
                 if patch_plan:
                     state.plan.extend(patch_plan)
+                    display.show_plan(state.plan, task_name=state.task)
                     state.retries += 1
                     state.status = "executing"
                     continue
