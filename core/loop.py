@@ -1,79 +1,87 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from agents.executor import StepExecutor
-from agents.planner import TaskPlanner
-from agents.verifier import TaskVerifier
-from core.state import AgentState, PlanStep
+from agents.executor import Executor
+from agents.planner import Planner
+from agents.verifier import Verifier
+from core.state import AgentState
 from ui.display import NexusDisplay
 
 
-class NexusLoop:
-    def __init__(self, display: NexusDisplay, workspace: Path) -> None:
-        self.display = display
-        self.workspace = workspace
-        self.planner = TaskPlanner()
-        self.executor = StepExecutor()
-        self.verifier = TaskVerifier()
+def save_session_log(state: AgentState, workspace_dir: str) -> Path:
+    log_path = Path(workspace_dir) / "nexus_session_log.json"
+    log_path.write_text(state.model_dump_json(indent=2), encoding="utf-8")
+    return log_path
 
-    def run(self, task: str, max_iterations: int) -> AgentState:
-        state = AgentState(
-            original_task=task,
-            workspace=str(self.workspace),
-            max_iterations=max_iterations,
-            status="running",
-        )
 
-        state.plan = self.planner.create_plan(task=task, workspace=str(self.workspace))
-        self.display.show_plan(state.plan)
+def run(task: str, workspace_dir: str) -> AgentState:
+    display = NexusDisplay()
+    planner = Planner(display=display)
+    executor = Executor()
+    verifier = Verifier()
+    state = AgentState(task=task, workspace_dir=str(Path(workspace_dir).resolve()))
 
-        while state.iteration < state.max_iterations:
-            if state.current_step_index >= len(state.plan):
-                complete, reason = self.verifier.verify_task(task, state.completed_steps)
-                state.last_verification = reason
-                state.status = "completed" if complete else "failed"
-                if not complete:
-                    revised_steps = self.planner.replan(task, state.completed_steps, reason)
-                    if revised_steps:
-                        state.plan.extend(revised_steps)
-                        self.display.log(f"Replanned remaining work: {reason}")
-                        continue
+    display.show_banner()
+    display.show_status("Planning task...")
+    state.plan = planner.generate_plan(task, state.workspace_dir)
+    state.status = "executing"
+    display.show_plan(state.plan)
+
+    while state.current_step_index < len(state.plan):
+        step = state.plan[state.current_step_index]
+        display.show_step_start(step)
+
+        updated_step = executor.execute_step(step, state)
+        state.plan[state.current_step_index] = updated_step
+
+        if updated_step["status"] == "failed":
+            state.retries += 1
+            display.show_step_failed(updated_step)
+            if state.retries >= state.max_retries:
+                state.status = "failed"
+                display.show_fatal_error("Max retries reached")
                 break
 
-            step = state.plan[state.current_step_index]
-            state.iteration += 1
-            self.display.show_step_start(step, state.iteration, state.max_iterations)
+            new_step = planner.replan_step(updated_step, state)
+            state.plan[state.current_step_index] = new_step
+            continue
 
-            result = self.executor.execute(step=step, workspace=self.workspace)
-            state.last_result = result
-            self.display.show_step_result(step, result)
+        state.retries = 0
+        display.show_step_done(updated_step)
+        state.current_step_index += 1
 
-            is_complete, reason = self.verifier.verify_step(step, result)
-            state.last_verification = reason
-            state.logs.append(f"{step.id}: {reason}")
+        if state.current_step_index >= len(state.plan) and state.status != "failed":
+            state.status = "verifying"
+            result = verifier.verify_task(state)
+            if result["success"]:
+                state.status = "done"
+                display.show_success(result["summary"])
+                break
 
-            if is_complete:
-                state.completed_steps.append(step)
-                state.current_step_index += 1
-                self.display.log(f"Verified {step.id}: {reason}")
-                continue
-
-            state.failed_steps.append(step)
-            self.display.log(f"Step failed verification: {reason}")
-
-            revised_steps = self.planner.replan(task, state.completed_steps, reason)
-            if revised_steps:
-                remaining = state.plan[state.current_step_index + 1 :]
-                state.plan = state.completed_steps + revised_steps + remaining
-                state.current_step_index = len(state.completed_steps)
-                self.display.show_plan(state.plan, title="Revised plan")
-                continue
-
+            display.show_issues(result["issues"])
+            if state.retries < state.max_retries:
+                patch_plan = planner.generate_patch_plan(result["issues"], state)
+                if patch_plan:
+                    state.plan.extend(patch_plan)
+                    state.retries += 1
+                    state.status = "executing"
+                    continue
             state.status = "failed"
             break
 
-        if state.status == "running":
-            state.status = "completed" if state.current_step_index >= len(state.plan) else "failed"
+    save_session_log(state, state.workspace_dir)
+    return state
 
+
+class NexusLoop:
+    def __init__(self, display: NexusDisplay | None = None, workspace: Path | None = None) -> None:
+        self.display = display or NexusDisplay()
+        self.workspace = workspace or Path.cwd()
+
+    def run(self, task: str, max_iterations: int | None = None) -> AgentState:
+        state = run(task=task, workspace_dir=str(self.workspace))
+        if max_iterations is not None:
+            state.max_retries = max_iterations
         return state
