@@ -100,9 +100,9 @@ class Executor:
             step["output"] = result["stdout"] or result["stderr"] or step["args"].get("check", "")
             return step
 
-        is_complete, reason = self.verifier.verify_step(step=step, state=state)
+        is_complete = self.verifier.verify_step(step=step, state=state)
         step["status"] = "done" if is_complete else "failed"
-        step["output"] = reason
+        step["output"] = step["args"].get("check", "") if is_complete else "Verification failed."
         return step
 
     @staticmethod
