@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import threading
+import webbrowser
 from pathlib import Path
 
 from config import MAX_RETRIES, WORKSPACE_DIR
@@ -11,11 +13,10 @@ console = Console()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Nexus Agent local orchestrator")
+    parser = argparse.ArgumentParser(description="Daemon local orchestrator")
     parser.add_argument(
         "--task",
-        required=True,
-        help="Task description for Nexus Agent",
+        help="Task description for Daemon",
     )
     parser.add_argument(
         "--workspace",
@@ -33,11 +34,36 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Generate and print the plan without executing any steps",
     )
+    parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help="Launch the local web dashboard instead of the CLI run flow",
+    )
+    parser.add_argument(
+        "--dashboard-port",
+        type=int,
+        default=8080,
+        help="Port for the local dashboard server",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.dashboard:
+        from dashboard.app import app as dashboard_app
+        import uvicorn
+
+        dashboard_url = f"http://127.0.0.1:{args.dashboard_port}"
+        console.print(f"[green]Starting dashboard on {dashboard_url}[/green]")
+        threading.Timer(1.2, lambda: webbrowser.open(dashboard_url)).start()
+        uvicorn.run(dashboard_app, host="127.0.0.1", port=args.dashboard_port)
+        return
+
+    if not args.task:
+        console.print("[red]Error:[/red] --task is required unless --dashboard is used.")
+        raise SystemExit(1)
+
     task_text = args.task.strip()
     if len(task_text.split()) < 5:
         console.print("[yellow]Warning:[/yellow] Please provide a more specific task with at least 5 words.")
@@ -49,9 +75,9 @@ def main() -> None:
     try:
         if args.dry_run:
             from agents.planner import Planner
-            from ui.display import NexusDisplay
+            from ui.display import DaemonDisplay
 
-            display = NexusDisplay()
+            display = DaemonDisplay()
             planner = Planner(display=display)
             plan = planner.generate_plan(task=task_text, workspace_dir=str(workspace_dir))
             display.show_plan(plan, task_name=task_text)
@@ -66,7 +92,7 @@ def main() -> None:
         console.print("[yellow]Session interrupted[/yellow]")
         return
 
-    session_log_path = (workspace_dir / "nexus_session_log.json").resolve()
+    session_log_path = (workspace_dir / "daemon_session_log.json").resolve()
     console.print(f"Session log: {session_log_path}")
     console.print(f"Final status: {final_state.status}")
 

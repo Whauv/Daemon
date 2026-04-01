@@ -1,0 +1,494 @@
+:root {
+  --bg: #0c161d;
+  --panel: #13242d;
+  --panel-alt: #0f1d25;
+  --panel-soft: #19303a;
+  --line: #284754;
+  --line-strong: #345b6b;
+  --text: #edf5f7;
+  --muted: #9bb2bd;
+  --accent: #5cc6b0;
+  --accent-strong: #3fa590;
+  --warn: #e0bc64;
+  --danger: #e2767d;
+  --success: #73c98f;
+  --shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-y: auto;
+}
+
+.shell {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 28px;
+  min-height: 100vh;
+}
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(7, 18, 25, 0.92);
+}
+
+.intro-overlay.hidden {
+  display: none;
+}
+
+.intro-card {
+  width: min(760px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+
+.intro-points {
+  margin: 18px 0 24px;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+}
+
+h1, h2 {
+  margin: 0;
+}
+
+.subcopy {
+  max-width: 760px;
+  color: var(--muted);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.hero-card,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+
+.hero-card {
+  min-width: 240px;
+  padding: 16px 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--warn);
+  box-shadow: 0 0 0 4px rgba(224, 188, 100, 0.14);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 18px;
+}
+
+.panel {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.controls { grid-column: span 4; }
+.run-state { grid-column: span 8; }
+.events { grid-column: span 7; }
+.projects { grid-column: span 5; }
+.inspector { grid-column: span 12; }
+
+.projects {
+  overflow: hidden;
+}
+
+label {
+  display: block;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+textarea,
+input {
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-alt);
+  color: var(--text);
+  padding: 12px 14px;
+  font: inherit;
+}
+
+textarea:focus,
+input:focus {
+  outline: 2px solid rgba(92, 198, 176, 0.24);
+  border-color: var(--accent);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.inline-row,
+.button-row,
+.panel-header,
+.progress-meta {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inline-row {
+  align-items: end;
+}
+
+.inline-row > label:first-child {
+  flex: 1 1 220px;
+}
+
+.inline-row > .checkbox {
+  flex: 0 0 auto;
+  min-width: 140px;
+  margin-top: 32px;
+}
+
+.checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+}
+
+.checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 11px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+  white-space: nowrap;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button.primary {
+  background: var(--accent);
+  color: #062128;
+}
+
+button.secondary {
+  background: var(--panel-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.hint,
+.muted,
+.run-task {
+  color: var(--muted);
+}
+
+.badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.badge.neutral { background: rgba(155, 178, 189, 0.14); color: var(--muted); }
+.badge.running { background: rgba(224, 188, 100, 0.15); color: var(--warn); }
+.badge.done { background: rgba(115, 201, 143, 0.15); color: var(--success); }
+.badge.failed { background: rgba(226, 118, 125, 0.15); color: var(--danger); }
+
+.progress-block {
+  margin-top: 18px;
+}
+
+.progress-track {
+  height: 12px;
+  border-radius: 999px;
+  background: #203743;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+}
+
+.run-meta {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.plan-list,
+.events-list,
+.projects-list,
+.files-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  align-content: start;
+}
+
+.step-card,
+.event-card,
+.project-card,
+.file-row {
+  background: var(--panel-alt);
+  border: 1px solid rgba(52, 91, 107, 0.65);
+  border-radius: 16px;
+  padding: 12px 14px;
+  min-width: 0;
+  width: 100%;
+}
+
+.step-head,
+.project-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.step-type {
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.step-status {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.step-output,
+.event-meta,
+.project-actions,
+.file-row {
+  margin-top: 8px;
+}
+
+.step-output,
+.event-meta {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.event-card.running { border-color: rgba(224, 188, 100, 0.75); }
+.event-card.done { border-color: rgba(115, 201, 143, 0.75); }
+.event-card.failed,
+.event-card.fatal { border-color: rgba(226, 118, 125, 0.75); }
+
+.project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+}
+
+.project-actions button {
+  flex: 0 0 auto;
+  min-width: 108px;
+}
+
+.project-card .muted {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.button-row {
+  margin-top: 16px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.button-row button {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+.inspector-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  min-height: 420px;
+}
+
+.file-row {
+  cursor: pointer;
+}
+
+.file-row:hover {
+  border-color: rgba(55, 198, 177, 0.5);
+}
+
+.file-content {
+  margin: 0;
+  min-height: 360px;
+  max-height: 700px;
+  overflow: auto;
+  background: var(--panel-alt);
+  border: 1px solid rgba(52, 91, 107, 0.65);
+  border-radius: 16px;
+  padding: 16px;
+  color: #d7ecf2;
+}
+
+.run-state,
+.events,
+.projects {
+  min-height: 0;
+}
+
+.run-state .plan-list,
+.events .events-list,
+.projects .projects-list {
+  max-height: min(62vh, 760px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.inspector .files-list {
+  max-height: 700px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.plan-list,
+.events-list,
+.projects-list,
+.files-list,
+.file-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.plan-list::-webkit-scrollbar,
+.events-list::-webkit-scrollbar,
+.projects-list::-webkit-scrollbar,
+.files-list::-webkit-scrollbar,
+.file-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.plan-list::-webkit-scrollbar-thumb,
+.events-list::-webkit-scrollbar-thumb,
+.projects-list::-webkit-scrollbar-thumb,
+.files-list::-webkit-scrollbar-thumb,
+.file-content::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+@media (max-width: 1100px) {
+  .controls,
+  .run-state,
+  .events,
+  .projects,
+  .inspector {
+    grid-column: span 12;
+  }
+
+  .hero {
+    flex-direction: column;
+  }
+
+  .inspector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .run-state .plan-list,
+  .events .events-list,
+  .projects .projects-list,
+  .inspector .files-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .inline-row,
+  .button-row,
+  .panel-header,
+  .progress-meta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-row > .checkbox {
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  .button-row button,
+  .project-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}

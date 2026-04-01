@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daemon Dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div id="intro-overlay" class="intro-overlay">
+    <div class="intro-card">
+      <p class="eyebrow">Welcome</p>
+      <h1>Daemon</h1>
+      <p class="subcopy">A local dashboard for planning tasks, running the agent, tracking progress, inspecting generated files, and launching projects without living in the command line.</p>
+      <ul class="intro-points">
+        <li>Start normal runs or dry runs</li>
+        <li>Watch live step updates and progress</li>
+        <li>Inspect generated projects and files</li>
+        <li>Launch supported apps with one click</li>
+      </ul>
+      <button id="intro-enter-button" class="primary">Open Dashboard</button>
+    </div>
+  </div>
+  <div class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Local Agent Orchestrator</p>
+        <h1>Daemon Dashboard</h1>
+        <p class="subcopy">Run tasks, track the plan live, inspect generated projects, and launch apps without living in the terminal.</p>
+      </div>
+      <div class="hero-card">
+        <div class="status-dot"></div>
+        <span id="health-label">Checking backend...</span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel controls">
+        <h2>Start a Run</h2>
+        <label>
+          Task
+          <textarea id="task-input" rows="4" placeholder="Create a python CRUD REST API using FastAPI and SQLite with 4 endpoints"></textarea>
+        </label>
+        <label>
+          Workspace
+          <input id="workspace-input" type="text" placeholder="C:\path\to\workspace">
+        </label>
+        <div class="inline-row">
+          <label>
+            Max retries
+            <input id="retries-input" type="number" min="1" value="3">
+          </label>
+          <label class="checkbox">
+            <input id="dry-run-input" type="checkbox">
+            Dry run only
+          </label>
+        </div>
+        <div class="button-row">
+          <button id="run-button" class="primary">Run Task</button>
+          <button id="cancel-button" class="secondary">Cancel Run</button>
+          <button id="refresh-projects-button" class="secondary">Refresh Projects</button>
+        </div>
+        <p id="run-message" class="hint">Use the intro card and run form to start a task.</p>
+      </section>
+
+      <section class="panel run-state">
+        <div class="panel-header">
+          <h2>Current Run</h2>
+          <span id="run-status-badge" class="badge neutral">idle</span>
+        </div>
+        <p id="run-task-label" class="run-task">No active run</p>
+        <div class="progress-block">
+          <div class="progress-meta">
+            <span>Progress</span>
+            <span id="progress-label">0 / 0</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+        </div>
+        <div id="run-meta" class="run-meta">Waiting for a run to start.</div>
+        <div id="plan-list" class="plan-list"></div>
+      </section>
+
+      <section class="panel events">
+        <h2>Live Updates</h2>
+        <div id="events-list" class="events-list"></div>
+      </section>
+
+      <section class="panel projects">
+        <h2>Generated Projects</h2>
+        <div id="projects-list" class="projects-list"></div>
+      </section>
+
+      <section class="panel inspector">
+        <div class="panel-header">
+          <h2>Project Inspector</h2>
+          <span id="inspector-project-label" class="muted">No project selected</span>
+        </div>
+        <div class="inspector-grid">
+          <div id="files-list" class="files-list"></div>
+          <pre id="file-content" class="file-content">Select a file to preview it here.</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

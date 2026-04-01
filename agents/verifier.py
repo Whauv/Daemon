@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from core.groq_client import call_llm
@@ -36,6 +37,10 @@ class Verifier:
         return step.get("status") == "done"
 
     def verify_task(self, state: AgentState) -> dict[str, Any]:
+        heuristic_result = self._verify_task_from_workspace(state)
+        if heuristic_result["success"]:
+            return heuristic_result
+
         completed_outputs = [
             {
                 "id": step.get("id"),
@@ -60,9 +65,59 @@ class Verifier:
         except Exception as exc:
             return {
                 "success": False,
-                "summary": f"Task verification failed: {exc}",
-                "issues": ["Unable to complete LLM-based task verification."],
+                "summary": heuristic_result["summary"] or f"Task verification failed: {exc}",
+                "issues": heuristic_result["issues"] or ["Unable to complete LLM-based task verification."],
             }
+
+    def _verify_task_from_workspace(self, state: AgentState) -> dict[str, Any]:
+        python_files = self._workspace_python_files(state.workspace_dir)
+        if not python_files:
+            return {
+                "success": False,
+                "summary": "No generated Python files were found in the workspace.",
+                "issues": ["No Python application files were created."],
+            }
+
+        combined = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in python_files)
+        lowered = combined.lower()
+
+        endpoint_markers = ("@app.get(", "@app.post(", "@app.put(", "@app.delete(")
+        found_markers = [marker for marker in endpoint_markers if marker in lowered]
+        sqlite_markers = ("sqlite://", "sqlite3", "create_engine(", ".db")
+        has_sqlite = any(marker in lowered for marker in sqlite_markers)
+        has_fastapi = "fastapi" in lowered and "fastapi()" in lowered
+
+        issues: list[str] = []
+        if not has_fastapi:
+            issues.append("No FastAPI application file found.")
+        if len(found_markers) < 4:
+            issues.append("Expected at least four CRUD endpoint decorators in the generated app.")
+        if not has_sqlite:
+            issues.append("No SQLite database setup found in the generated app.")
+
+        if issues:
+            return {
+                "success": False,
+                "summary": "Workspace verification found missing API or database pieces.",
+                "issues": issues,
+            }
+
+        app_files = ", ".join(path.name for path in python_files)
+        return {
+            "success": True,
+            "summary": f"Verified FastAPI CRUD app with SQLite setup in: {app_files}",
+            "issues": [],
+        }
+
+    @staticmethod
+    def _workspace_python_files(workspace_dir: str) -> list[Path]:
+        root = Path(workspace_dir)
+        files: list[Path] = []
+        for path in root.rglob("*.py"):
+            if "venv" in path.parts or "__pycache__" in path.parts:
+                continue
+            files.append(path)
+        return files
 
     @staticmethod
     def extract_json(content: str) -> dict[str, Any]:

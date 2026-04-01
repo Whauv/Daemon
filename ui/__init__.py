@@ -1,3 +1,3 @@
-from .display import NexusDisplay
+from .display import DaemonDisplay
 
-__all__ = ["NexusDisplay"]
+__all__ = ["DaemonDisplay"]
