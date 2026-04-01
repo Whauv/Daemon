@@ -5,10 +5,9 @@ import threading
 import time
 from typing import Any
 
-from groq import Groq
 from rich.console import Console
 
-from config import settings
+from config import GROQ_API_KEY, MAX_RETRIES, MODEL_NAME, REQUEST_TIMEOUT
 
 
 console = Console(stderr=True)
@@ -30,7 +29,7 @@ def _status_code_from_error(error: Exception) -> int | None:
 class GroqClientManager:
     _instance: "GroqClientManager | None" = None
     _instance_lock = threading.Lock()
-    _model_name = "llama-3.3-70b-versatile"
+    _model_name = MODEL_NAME
 
     def __new__(cls) -> "GroqClientManager":
         if cls._instance is None:
@@ -44,7 +43,11 @@ class GroqClientManager:
         if getattr(self, "_initialized", False):
             return
         self._initialized = True
-        self.client = Groq(api_key=settings.groq_api_key) if settings.groq_api_key else None
+        try:
+            from groq import Groq
+        except Exception:
+            Groq = None
+        self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY and Groq is not None else None
 
     def call_llm(
         self,
@@ -67,18 +70,19 @@ class GroqClientManager:
             "model": self._model_name,
             "messages": full_messages,
             "temperature": temperature,
+            "timeout": REQUEST_TIMEOUT,
         }
         if json_output:
             request_kwargs["response_format"] = {"type": "json_object"}
 
         last_error: Exception | None = None
-        for attempt in range(settings.max_retries):
+        for attempt in range(MAX_RETRIES):
             try:
                 response = self.client.chat.completions.create(**request_kwargs)
                 return response.model_dump()
             except Exception as exc:
                 last_error = exc
-                if not self._is_rate_limit_error(exc) or attempt >= settings.max_retries - 1:
+                if not self._is_rate_limit_error(exc) or attempt >= MAX_RETRIES - 1:
                     break
                 sleep_for = 2**attempt
                 console.print(

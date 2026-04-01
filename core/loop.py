@@ -16,12 +16,14 @@ def save_session_log(state: AgentState, workspace_dir: str) -> Path:
     return log_path
 
 
-def run(task: str, workspace_dir: str) -> AgentState:
+def run(task: str, workspace_dir: str, max_retries: int | None = None) -> AgentState:
     display = NexusDisplay()
     planner = Planner(display=display)
     executor = Executor()
     verifier = Verifier()
     state = AgentState(task=task, workspace_dir=str(Path(workspace_dir).resolve()))
+    if max_retries is not None:
+        state.max_retries = max_retries
 
     display.show_banner()
     display.show_status("Planning task...")
@@ -82,7 +84,4 @@ class NexusLoop:
         self.workspace = workspace or Path.cwd()
 
     def run(self, task: str, max_iterations: int | None = None) -> AgentState:
-        state = run(task=task, workspace_dir=str(self.workspace))
-        if max_iterations is not None:
-            state.max_retries = max_iterations
-        return state
+        return run(task=task, workspace_dir=str(self.workspace), max_retries=max_iterations)
