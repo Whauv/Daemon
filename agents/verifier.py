@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,16 @@ class Verifier:
 
     def _verify_task_from_workspace(self, state: AgentState) -> dict[str, Any]:
         python_files = self._workspace_python_files(state.workspace_dir)
+        workspace_root = Path(state.workspace_dir)
+        package_json = workspace_root / "package.json"
+
+        if self._looks_like_fastapi_task(state.task, python_files):
+            return self._verify_fastapi_workspace(state, python_files)
+        if self._looks_like_react_task(state.task, package_json):
+            return self._verify_react_workspace(state, workspace_root, package_json)
+        return self._verify_generic_workspace(state, workspace_root, python_files)
+
+    def _verify_fastapi_workspace(self, state: AgentState, python_files: list[Path]) -> dict[str, Any]:
         if not python_files:
             return {
                 "success": False,
@@ -82,17 +93,18 @@ class Verifier:
         lowered = combined.lower()
 
         endpoint_markers = ("@app.get(", "@app.post(", "@app.put(", "@app.delete(")
-        found_markers = [marker for marker in endpoint_markers if marker in lowered]
+        found_endpoint_count = sum(lowered.count(marker) for marker in endpoint_markers)
         sqlite_markers = ("sqlite://", "sqlite3", "create_engine(", ".db")
         has_sqlite = any(marker in lowered for marker in sqlite_markers)
         has_fastapi = "fastapi" in lowered and "fastapi()" in lowered
+        required_endpoints = self._required_endpoint_count(state.task)
 
         issues: list[str] = []
         if not has_fastapi:
             issues.append("No FastAPI application file found.")
-        if len(found_markers) < 4:
-            issues.append("Expected at least four CRUD endpoint decorators in the generated app.")
-        if not has_sqlite:
+        if found_endpoint_count < required_endpoints:
+            issues.append(f"Expected at least {required_endpoints} endpoint decorators in the generated app.")
+        if not has_sqlite and "sqlite" in state.task.lower():
             issues.append("No SQLite database setup found in the generated app.")
 
         if issues:
@@ -105,7 +117,87 @@ class Verifier:
         app_files = ", ".join(path.name for path in python_files)
         return {
             "success": True,
-            "summary": f"Verified FastAPI CRUD app with SQLite setup in: {app_files}",
+            "summary": f"Verified FastAPI workspace with {found_endpoint_count} endpoints in: {app_files}",
+            "issues": [],
+        }
+
+    def _verify_react_workspace(self, state: AgentState, workspace_root: Path, package_json: Path) -> dict[str, Any]:
+        issues: list[str] = []
+        if not package_json.exists():
+            issues.append("package.json was not created.")
+            return {
+                "success": False,
+                "summary": "React workspace verification failed.",
+                "issues": issues,
+            }
+
+        try:
+            package_data = json.loads(package_json.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {
+                "success": False,
+                "summary": "React workspace verification failed.",
+                "issues": ["package.json is not valid JSON."],
+            }
+
+        scripts = package_data.get("scripts", {})
+        if "build" not in scripts:
+            issues.append("package.json is missing a build script.")
+
+        src_dir = workspace_root / "src"
+        if not src_dir.exists():
+            issues.append("src directory was not created.")
+
+        app_files = [path for path in src_dir.rglob("*") if path.is_file()] if src_dir.exists() else []
+        has_entry = any(path.name.lower().startswith("app.") for path in app_files)
+        component_count = sum(path.suffix.lower() in {".js", ".jsx", ".ts", ".tsx", ".css"} for path in app_files)
+
+        if not has_entry:
+            issues.append("No App entry file was found in src.")
+        if component_count < 2:
+            issues.append("The React workspace does not contain enough source files to represent a usable app.")
+
+        if issues:
+            return {
+                "success": False,
+                "summary": "React workspace verification found missing project structure.",
+                "issues": issues,
+            }
+
+        return {
+            "success": True,
+            "summary": f"Verified React workspace with {component_count} source files and a build script.",
+            "issues": [],
+        }
+
+    def _verify_generic_workspace(
+        self,
+        state: AgentState,
+        workspace_root: Path,
+        python_files: list[Path],
+    ) -> dict[str, Any]:
+        generated_files = [
+            path for path in workspace_root.rglob("*")
+            if path.is_file() and not any(part in {"venv", ".venv", "__pycache__", "node_modules"} for part in path.parts)
+        ]
+        if not generated_files:
+            return {
+                "success": False,
+                "summary": "No generated files were found in the workspace.",
+                "issues": ["The workspace is empty."],
+            }
+
+        if state.failed_steps and not state.completed_steps:
+            return {
+                "success": False,
+                "summary": "Execution produced no successful steps.",
+                "issues": ["All recorded steps failed."],
+            }
+
+        primary_files = ", ".join(path.name for path in generated_files[:5])
+        return {
+            "success": True,
+            "summary": f"Verified generated workspace contents including: {primary_files}",
             "issues": [],
         }
 
@@ -114,10 +206,34 @@ class Verifier:
         root = Path(workspace_dir)
         files: list[Path] = []
         for path in root.rglob("*.py"):
-            if "venv" in path.parts or "__pycache__" in path.parts:
+            if any(part in {"venv", ".venv", "__pycache__", "node_modules"} for part in path.parts):
                 continue
             files.append(path)
         return files
+
+    @staticmethod
+    def _looks_like_fastapi_task(task: str, python_files: list[Path]) -> bool:
+        task_lower = task.lower()
+        if "fastapi" in task_lower or "api" in task_lower:
+            return True
+        return any("fastapi" in path.read_text(encoding="utf-8", errors="ignore").lower() for path in python_files)
+
+    @staticmethod
+    def _looks_like_react_task(task: str, package_json: Path) -> bool:
+        task_lower = task.lower()
+        if "react" in task_lower or "frontend" in task_lower:
+            return True
+        return package_json.exists()
+
+    @staticmethod
+    def _required_endpoint_count(task: str) -> int:
+        task_lower = task.lower()
+        match = re.search(r"(\d+)\s+endpoints?", task_lower)
+        if match:
+            return max(1, int(match.group(1)))
+        if "crud" in task_lower:
+            return 4
+        return 1
 
     @staticmethod
     def extract_json(content: str) -> dict[str, Any]:

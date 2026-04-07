@@ -10,7 +10,11 @@ from typing import Any
 from uuid import uuid4
 
 from core.loop import generate_plan_snapshot, run
-from tools.file_tools import guard_workspace_path
+from core.workspace import (
+    list_visible_project_directories,
+    resolve_dashboard_workspace,
+    resolve_project_directory,
+)
 
 
 def _utc_now() -> str:
@@ -23,6 +27,7 @@ class DashboardRunManager:
         self._lock = threading.Lock()
         self._runs: dict[str, dict[str, Any]] = {}
         self._launches: dict[str, dict[str, Any]] = {}
+        self._launch_processes: dict[str, subprocess.Popen[Any]] = {}
 
     def start_run(
         self,
@@ -33,8 +38,7 @@ class DashboardRunManager:
         dry_run: bool,
     ) -> dict[str, Any]:
         run_id = uuid4().hex
-        workspace = Path(workspace_dir).resolve()
-        workspace.mkdir(parents=True, exist_ok=True)
+        workspace = resolve_dashboard_workspace(workspace_dir, self.workspace_root)
 
         record = {
             "id": run_id,
@@ -149,12 +153,9 @@ class DashboardRunManager:
         return self.get_run(run_id)
 
     def list_projects(self, workspace_dir: str | None = None) -> list[dict[str, Any]]:
-        root = Path(workspace_dir).resolve() if workspace_dir else self.workspace_root
-        root.mkdir(parents=True, exist_ok=True)
         projects: list[dict[str, Any]] = []
-        for entry in root.iterdir():
-            if not entry.is_dir():
-                continue
+        root = resolve_dashboard_workspace(workspace_dir, self.workspace_root)
+        for entry in list_visible_project_directories(root):
             app_file = entry / "app.py"
             main_file = entry / "main.py"
             requirements_file = entry / "requirements.txt"
@@ -169,29 +170,50 @@ class DashboardRunManager:
         return sorted(projects, key=lambda item: item["name"])
 
     def project_files(self, project_name: str, workspace_dir: str | None = None) -> list[dict[str, Any]]:
-        root = Path(workspace_dir).resolve() if workspace_dir else self.workspace_root
-        project_root = guard_workspace_path(project_name, str(root))
+        project_root = resolve_project_directory(
+            project_name,
+            workspace_dir=workspace_dir or self.workspace_root,
+            workspace_root=self.workspace_root,
+        )
         files: list[dict[str, Any]] = []
         for path in project_root.rglob("*"):
-            if "venv" in path.parts or "__pycache__" in path.parts:
+            if any(part in {"venv", ".venv", "__pycache__", "node_modules"} for part in path.parts):
                 continue
             if path.is_file():
                 files.append({"path": str(path.relative_to(project_root)).replace("\\", "/"), "size": path.stat().st_size})
         return sorted(files, key=lambda item: item["path"])
 
     def read_project_file(self, project_name: str, relative_path: str, workspace_dir: str | None = None) -> dict[str, Any]:
-        root = Path(workspace_dir).resolve() if workspace_dir else self.workspace_root
-        project_root = guard_workspace_path(project_name, str(root))
-        target = guard_workspace_path(str(Path(project_name) / relative_path), str(root))
+        project_root = resolve_project_directory(
+            project_name,
+            workspace_dir=workspace_dir or self.workspace_root,
+            workspace_root=self.workspace_root,
+        )
+        target = (project_root / relative_path).resolve()
+        try:
+            target.relative_to(project_root)
+        except ValueError as exc:
+            raise ValueError("Requested file escapes the selected project.") from exc
         return {
             "path": str(target.relative_to(project_root)).replace("\\", "/"),
             "content": target.read_text(encoding="utf-8", errors="ignore"),
         }
 
     def launch_project(self, project_name: str, workspace_dir: str | None = None) -> dict[str, Any]:
-        root = Path(workspace_dir).resolve() if workspace_dir else self.workspace_root
-        project_root = guard_workspace_path(project_name, str(root))
+        project_root = resolve_project_directory(
+            project_name,
+            workspace_dir=workspace_dir or self.workspace_root,
+            workspace_root=self.workspace_root,
+        )
         app_target = "app:app" if (project_root / "app.py").exists() else "main:app"
+        if not (project_root / "app.py").exists() and not (project_root / "main.py").exists():
+            raise ValueError("Project does not contain a launchable FastAPI entrypoint.")
+
+        existing = self._launches.get(project_name)
+        process = self._launch_processes.get(project_name)
+        if existing is not None and process is not None and process.poll() is None:
+            return existing
+
         port = self._next_free_port()
         python_exe = self._python_executable()
 
@@ -224,6 +246,7 @@ class DashboardRunManager:
         }
         with self._lock:
             self._launches[project_name] = record
+            self._launch_processes[project_name] = process
         return record
 
     def get_launch(self, project_name: str) -> dict[str, Any] | None:

@@ -42,6 +42,26 @@ async function api(path, options = {}) {
   return response.json();
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function setRunMessageWithLink(projectName, docsUrl) {
+  els.runMessage.textContent = "";
+  const prefix = document.createTextNode(`Launched ${projectName} on `);
+  const link = document.createElement("a");
+  link.href = docsUrl;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = docsUrl;
+  els.runMessage.append(prefix, link);
+}
+
 function setBadge(status) {
   els.runStatusBadge.textContent = status;
   els.runStatusBadge.className = `badge ${status === "running" || status === "cancelling" ? "running" : status === "done" ? "done" : status === "failed" || status === "cancelled" ? "failed" : "neutral"}`;
@@ -70,12 +90,12 @@ function renderPlan(run) {
     <div class="step-card">
       <div class="step-head">
         <div>
-          <strong>#${step.id} ${step.title}</strong>
-          <div class="step-type">${step.type}</div>
+          <strong>#${escapeHtml(step.id)} ${escapeHtml(step.title)}</strong>
+          <div class="step-type">${escapeHtml(step.type)}</div>
         </div>
-        <div class="step-status">${step.status || (index === currentIndex ? "running" : "pending")}</div>
+        <div class="step-status">${escapeHtml(step.status || (index === currentIndex ? "running" : "pending"))}</div>
       </div>
-      <div class="step-output">${step.output || step.description || ""}</div>
+      <div class="step-output">${escapeHtml(step.output || step.description || "")}</div>
     </div>
   `).join("");
 }
@@ -87,8 +107,8 @@ function renderEvents(events) {
   }
   els.eventsList.innerHTML = events.slice().reverse().map((event) => `
     <div class="event-card ${event.type || ""}">
-      <strong>${event.type || "event"}</strong>
-      <div class="event-meta">${event.message || event.result?.summary || event.step?.title || ""}${event.step?.output ? `\n\n${event.step.output}` : ""}</div>
+      <strong>${escapeHtml(event.type || "event")}</strong>
+      <div class="event-meta">${escapeHtml(event.message || event.result?.summary || event.step?.title || "")}${event.step?.output ? `\n\n${escapeHtml(event.step.output)}` : ""}</div>
       <div class="muted">${new Date(event.timestamp).toLocaleTimeString()}</div>
     </div>
   `).join("");
@@ -177,14 +197,14 @@ async function loadProjects() {
     <div class="project-card">
       <div class="project-head">
         <div>
-          <strong>${project.name}</strong>
-          <div class="muted">${project.path}</div>
+          <strong>${escapeHtml(project.name)}</strong>
+          <div class="muted">${escapeHtml(project.path)}</div>
         </div>
       </div>
       <div class="project-actions">
-        <button class="secondary" data-action="inspect" data-project="${project.name}">Inspect</button>
-        <button class="secondary" data-action="launch" data-project="${project.name}">Launch App</button>
-        <button class="secondary" data-action="docs" data-project="${project.name}">Open Docs</button>
+        <button class="secondary" data-action="inspect" data-project="${escapeHtml(project.name)}">Inspect</button>
+        <button class="secondary" data-action="launch" data-project="${escapeHtml(project.name)}">Launch App</button>
+        <button class="secondary" data-action="docs" data-project="${escapeHtml(project.name)}">Open Docs</button>
       </div>
     </div>
   `).join("");
@@ -201,7 +221,7 @@ async function inspectProject(projectName) {
     return;
   }
   els.filesList.innerHTML = files.map((file) => `
-    <div class="file-row" data-file="${file.path}">${file.path}</div>
+    <div class="file-row" data-file="${escapeHtml(file.path)}">${escapeHtml(file.path)}</div>
   `).join("");
   await loadFile(projectName, files[0].path);
 }
@@ -215,16 +235,17 @@ async function loadFile(projectName, path) {
 async function launchProject(projectName) {
   const workspaceQuery = els.workspaceInput.value.trim() ? `?workspace_dir=${encodeURIComponent(els.workspaceInput.value.trim())}` : "";
   const launch = await api(`/api/projects/${encodeURIComponent(projectName)}/launch${workspaceQuery}`, { method: "POST" });
-  els.runMessage.innerHTML = `Launched <strong>${projectName}</strong> on <a href="${launch.docs_url}" target="_blank" rel="noreferrer">${launch.docs_url}</a>`;
+  setRunMessageWithLink(projectName, launch.docs_url);
   await loadProjects();
 }
 
 async function openDocs(projectName) {
+  const workspaceQuery = els.workspaceInput.value.trim() ? `?workspace_dir=${encodeURIComponent(els.workspaceInput.value.trim())}` : "";
   try {
-    const launch = await api(`/api/projects/${encodeURIComponent(projectName)}/launch`);
+    const launch = await api(`/api/projects/${encodeURIComponent(projectName)}/launch${workspaceQuery}`);
     window.open(launch.docs_url, "_blank", "noopener,noreferrer");
   } catch {
-    const launch = await api(`/api/projects/${encodeURIComponent(projectName)}/launch`, { method: "POST" });
+    const launch = await api(`/api/projects/${encodeURIComponent(projectName)}/launch${workspaceQuery}`, { method: "POST" });
     window.open(launch.docs_url, "_blank", "noopener,noreferrer");
   }
 }

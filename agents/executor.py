@@ -40,6 +40,10 @@ class Executor:
 
     def _execute_create_dir(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
         relative_path = self._normalize_workspace_path_arg(step["args"].get("path", ""), state)
+        if not relative_path:
+            step["status"] = "failed"
+            step["output"] = "Missing directory path."
+            return step
         step["args"]["path"] = relative_path
         try:
             if create_dir(path=relative_path, workspace=state.workspace_dir):
@@ -55,8 +59,12 @@ class Executor:
 
     def _execute_write_file(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
         path = self._normalize_workspace_path_arg(step["args"].get("path", ""), state)
-        step["args"]["path"] = path
         content = str(step["args"].get("content", ""))
+        if not path:
+            step["status"] = "failed"
+            step["output"] = "Missing file path."
+            return step
+        step["args"]["path"] = path
 
         if self._content_looks_incomplete(content):
             content = self._regenerate_file_content(step=step, state=state, existing_content=content)
@@ -90,16 +98,23 @@ class Executor:
 
     def _execute_run_command(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]:
         command = str(step["args"].get("command", ""))
+        if not command.strip():
+            step["status"] = "failed"
+            step["output"] = "Missing shell command."
+            return step
         result = run_command(command=command, workspace=state.workspace_dir)
         attempts = 0
+        attempted_commands = {command}
 
         while result["exit_code"] != 0 and attempts < 2:
             fix_command = self._suggest_fix_command(step=step, state=state, failed_command=command, result=result)
-            if not fix_command:
+            if not fix_command or fix_command in attempted_commands:
                 break
             attempts += 1
             command = fix_command
+            attempted_commands.add(command)
             result = run_command(command=command, workspace=state.workspace_dir)
+        step["args"]["command"] = command
 
         if result["exit_code"] == 0:
             step["status"] = "done"

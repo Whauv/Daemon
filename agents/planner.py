@@ -36,59 +36,46 @@ class Planner:
         self.display = display
 
     def generate_plan(self, task: str, workspace_dir: str) -> list[dict[str, Any]]:
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    f"Task: {task}\n"
-                    f"Workspace directory: {workspace_dir}\n"
-                    "Return a dependency-aware implementation plan."
-                ),
-            }
-        ]
-        response = call_llm(
-            messages=messages,
-            system_prompt=PLANNER_SYSTEM_PROMPT,
-            temperature=0.2,
-            json_output=True,
+        steps = self._request_steps(
+            [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Task: {task}\n"
+                        f"Workspace directory: {workspace_dir}\n"
+                        "Return a dependency-aware implementation plan."
+                    ),
+                }
+            ]
         )
-        content = response["choices"][0]["message"]["content"]
-        payload = PlanResponse.model_validate_json(content)
-        steps = [self._validate_step(step) for step in payload.steps]
         steps = self._normalize_plan(steps)
+        steps = self._assign_step_ids(steps)
         self._ensure_final_verify_step(steps)
         if self.display is not None:
             self.display.show_plan(steps, title="Generated Plan")
         return steps
 
     def replan_step(self, failed_step: dict[str, Any], state: Any) -> dict[str, Any]:
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    f"Original task: {state.task}\n"
-                    f"Workspace directory: {state.workspace_dir}\n"
-                    f"Failed step: {failed_step}\n"
-                    f"Completed steps: {state.completed_steps}\n"
-                    "Return one corrected replacement step."
-                ),
-            }
-        ]
-        response = call_llm(
-            messages=messages,
-            system_prompt=PLANNER_SYSTEM_PROMPT,
-            temperature=0.2,
-            json_output=True,
+        steps = self._request_steps(
+            [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Original task: {state.task}\n"
+                        f"Workspace directory: {state.workspace_dir}\n"
+                        f"Failed step: {failed_step}\n"
+                        f"Completed steps: {state.completed_steps}\n"
+                        "Return one corrected replacement step."
+                    ),
+                }
+            ]
         )
-        payload = PlanResponse.model_validate_json(response["choices"][0]["message"]["content"])
-        if not payload.steps:
-            raise ValueError("Replan response did not include any steps.")
-        replacement = self._validate_step(payload.steps[0])
+        replacement = self._normalize_plan([steps[0]])[0]
         replacement["id"] = failed_step["id"]
-        return self._normalize_plan([replacement])[0]
+        return replacement
 
     def generate_patch_plan(self, issues: list[str], state: Any) -> list[dict[str, Any]]:
-        messages = [
+        steps = self._request_steps(
             {
                 "role": "user",
                 "content": (
@@ -99,18 +86,26 @@ class Planner:
                     "Return an ordered patch plan to fix only these issues."
                 ),
             }
-        ]
+        )
+        steps = self._normalize_plan(steps)
+        start_at = max((int(step.get("id", 0)) for step in state.plan), default=0) + 1
+        steps = self._assign_step_ids(steps, start_at=start_at)
+        self._ensure_final_verify_step(steps)
+        return steps
+
+    def _request_steps(self, messages: list[dict[str, str]] | dict[str, str]) -> list[dict[str, Any]]:
+        payload_messages = messages if isinstance(messages, list) else [messages]
         response = call_llm(
-            messages=messages,
+            messages=payload_messages,
             system_prompt=PLANNER_SYSTEM_PROMPT,
             temperature=0.2,
             json_output=True,
         )
-        payload = PlanResponse.model_validate_json(response["choices"][0]["message"]["content"])
-        steps = [self._validate_step(step) for step in payload.steps]
-        steps = self._normalize_plan(steps)
-        self._ensure_final_verify_step(steps)
-        return steps
+        content = response["choices"][0]["message"]["content"]
+        payload = PlanResponse.model_validate_json(content)
+        if not payload.steps:
+            raise ValueError("Planner response did not include any steps.")
+        return [self._validate_step(step) for step in payload.steps]
 
     def _normalize_plan(self, steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         project_dir = self._infer_project_dir(steps)
@@ -138,6 +133,12 @@ class Planner:
             normalized.append(updated)
 
         return normalized
+
+    @staticmethod
+    def _assign_step_ids(steps: list[dict[str, Any]], start_at: int = 1) -> list[dict[str, Any]]:
+        for offset, step in enumerate(steps):
+            step["id"] = start_at + offset
+        return steps
 
     @staticmethod
     def _infer_project_dir(steps: list[dict[str, Any]]) -> str:

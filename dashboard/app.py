@@ -21,6 +21,10 @@ class RunRequest(BaseModel):
     max_retries: int = 3
     dry_run: bool = False
 
+    @property
+    def task_word_count(self) -> int:
+        return len([part for part in self.task.split() if part.strip()])
+
 
 def create_dashboard_app() -> FastAPI:
     app = FastAPI(title="Daemon Dashboard")
@@ -40,13 +44,18 @@ def create_dashboard_app() -> FastAPI:
 
     @app.post("/api/runs")
     def start_run(payload: RunRequest) -> dict:
+        if payload.task_word_count < 5:
+            raise HTTPException(status_code=422, detail="Task must contain at least 5 words.")
         workspace_dir = payload.workspace_dir or WORKSPACE_DIR
-        return manager.start_run(
-            task=payload.task,
-            workspace_dir=workspace_dir,
-            max_retries=payload.max_retries,
-            dry_run=payload.dry_run,
-        )
+        try:
+            return manager.start_run(
+                task=payload.task,
+                workspace_dir=workspace_dir,
+                max_retries=payload.max_retries,
+                dry_run=payload.dry_run,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str) -> dict:
@@ -71,19 +80,31 @@ def create_dashboard_app() -> FastAPI:
 
     @app.get("/api/projects")
     def list_projects(workspace_dir: str | None = None) -> list[dict]:
-        return manager.list_projects(workspace_dir=workspace_dir)
+        try:
+            return manager.list_projects(workspace_dir=workspace_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/projects/{project_name}/files")
     def project_files(project_name: str, workspace_dir: str | None = None) -> list[dict]:
-        return manager.project_files(project_name=project_name, workspace_dir=workspace_dir)
+        try:
+            return manager.project_files(project_name=project_name, workspace_dir=workspace_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/projects/{project_name}/file")
     def project_file(project_name: str, path: str = Query(...), workspace_dir: str | None = None) -> dict:
-        return manager.read_project_file(project_name=project_name, relative_path=path, workspace_dir=workspace_dir)
+        try:
+            return manager.read_project_file(project_name=project_name, relative_path=path, workspace_dir=workspace_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/projects/{project_name}/launch")
     def launch_project(project_name: str, workspace_dir: str | None = None) -> dict:
-        return manager.launch_project(project_name=project_name, workspace_dir=workspace_dir)
+        try:
+            return manager.launch_project(project_name=project_name, workspace_dir=workspace_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/projects/{project_name}/launch")
     def launch_status(project_name: str) -> dict:
