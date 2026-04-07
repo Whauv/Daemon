@@ -42,6 +42,12 @@ python main.py --dashboard
 python main.py --dashboard --dashboard-port 8090
 ```
 
+Run the regression suite:
+
+```bash
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
 ## Workflow
 
 ```mermaid

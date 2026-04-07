@@ -9,3 +9,4 @@ workspace/
 tmp_phase4/
 sqlalchemy.db
 *.db
+.test_tmp/

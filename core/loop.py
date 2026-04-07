@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 from agents.executor import Executor
 from agents.planner import Planner
@@ -12,6 +12,20 @@ from ui.display import DaemonDisplay
 
 EventHandler = Callable[[dict[str, Any]], None]
 CancelHandler = Callable[[], bool]
+
+
+class PlannerContract(Protocol):
+    def generate_plan(self, task: str, workspace_dir: str) -> list[dict[str, Any]]: ...
+    def replan_step(self, failed_step: dict[str, Any], state: AgentState) -> dict[str, Any]: ...
+    def generate_patch_plan(self, issues: list[str], state: AgentState) -> list[dict[str, Any]]: ...
+
+
+class ExecutorContract(Protocol):
+    def execute_step(self, step: dict[str, Any], state: AgentState) -> dict[str, Any]: ...
+
+
+class VerifierContract(Protocol):
+    def verify_task(self, state: AgentState) -> dict[str, Any]: ...
 
 
 def save_session_log(state: AgentState, workspace_dir: str) -> Path:
@@ -37,10 +51,13 @@ def run(
     display: DaemonDisplay | None = None,
     event_handler: EventHandler | None = None,
     should_cancel: CancelHandler | None = None,
+    planner: PlannerContract | None = None,
+    executor: ExecutorContract | None = None,
+    verifier: VerifierContract | None = None,
 ) -> AgentState:
-    planner = Planner(display=display)
-    executor = Executor()
-    verifier = Verifier()
+    planner = planner or Planner(display=display)
+    executor = executor or Executor()
+    verifier = verifier or Verifier()
     state = AgentState(task=task, workspace_dir=str(Path(workspace_dir).resolve()))
     if max_retries is not None:
         state.max_retries = max_retries
@@ -85,6 +102,7 @@ def run(
                 break
 
             new_step = planner.replan_step(updated_step, state)
+            new_step["id"] = step["id"]
             state.plan[state.current_step_index] = new_step
             _emit(event_handler, {"type": "step_replanned", "step": new_step, "state": state.model_dump()})
             continue
