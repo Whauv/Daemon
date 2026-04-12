@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 
-from core.workspace import list_visible_project_directories, resolve_dashboard_workspace, resolve_project_directory
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from daemon.core.workspace import list_visible_project_directories, resolve_dashboard_workspace, resolve_project_directory
 from tests._helpers import cleanup_test_dir, make_test_dir
 
 

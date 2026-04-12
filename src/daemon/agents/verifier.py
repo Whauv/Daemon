@@ -5,10 +5,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-from core.groq_client import call_llm
-from core.state import AgentState
-from tools.file_tools import read_file
-from tools.shell_tools import run_command
+from daemon.core.groq_client import call_llm
+from daemon.core.state import AgentState
+from daemon.tools.file_tools import read_file
+from daemon.tools.shell_tools import run_command
 
 
 class Verifier:

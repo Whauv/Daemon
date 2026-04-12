@@ -7,8 +7,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from config import WORKSPACE_DIR
-from dashboard.manager import DashboardRunManager
+from daemon.config import WORKSPACE_DIR
+from daemon.dashboard.manager import DashboardRunManager
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"

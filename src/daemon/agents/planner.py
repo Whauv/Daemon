@@ -4,9 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from core.groq_client import call_llm
-from core.state import PlanStep
-from ui.display import DaemonDisplay
+from daemon.core.groq_client import call_llm
+from daemon.core.state import PlanStep
+from daemon.ui.display import DaemonDisplay
 
 
 PLANNER_SYSTEM_PROMPT = """

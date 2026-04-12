@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import threading
 import webbrowser
 from pathlib import Path
 
-from config import MAX_RETRIES, WORKSPACE_DIR
+PROJECT_ROOT = Path(__file__).resolve().parent
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from daemon.config import MAX_RETRIES, WORKSPACE_DIR
 from rich.console import Console
 
 
@@ -51,7 +57,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.dashboard:
-        from dashboard.app import app as dashboard_app
+        from daemon.dashboard.app import app as dashboard_app
         import uvicorn
 
         dashboard_url = f"http://127.0.0.1:{args.dashboard_port}"
@@ -74,8 +80,8 @@ def main() -> None:
 
     try:
         if args.dry_run:
-            from agents.planner import Planner
-            from ui.display import DaemonDisplay
+            from daemon.agents.planner import Planner
+            from daemon.ui.display import DaemonDisplay
 
             display = DaemonDisplay()
             planner = Planner(display=display)
@@ -85,7 +91,7 @@ def main() -> None:
             console.print("[green]Dry run complete. No steps were executed.[/green]")
             return
 
-        from core.loop import run
+        from daemon.core.loop import run
 
         final_state = run(task=task_text, workspace_dir=str(workspace_dir), max_retries=args.max_retries)
     except KeyboardInterrupt:

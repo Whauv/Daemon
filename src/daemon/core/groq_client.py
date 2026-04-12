@@ -7,7 +7,7 @@ from typing import Any
 
 from rich.console import Console
 
-from config import GROQ_API_KEY, MAX_RETRIES, MODEL_NAME, REQUEST_TIMEOUT
+from daemon.config import GROQ_API_KEY, MAX_RETRIES, MODEL_NAME, REQUEST_TIMEOUT
 
 
 console = Console(stderr=True)
