@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from core.loop import generate_plan_snapshot, run
-from core.workspace import (
+from daemon.core.loop import generate_plan_snapshot, run
+from daemon.core.workspace import (
     list_visible_project_directories,
     resolve_dashboard_workspace,
     resolve_project_directory,

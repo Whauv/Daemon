@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from core.state import AgentState, PlanStep
+from daemon.core.state import AgentState, PlanStep
 
 
 class DaemonDisplay:

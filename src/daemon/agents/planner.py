@@ -4,9 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from core.groq_client import call_llm
-from core.state import PlanStep
-from ui.display import DaemonDisplay
+from daemon.core.groq_client import call_llm
+from daemon.core.state import PlanStep
+from daemon.ui.display import DaemonDisplay
 
 
 PLANNER_SYSTEM_PROMPT = """
@@ -223,7 +223,6 @@ class Planner:
         return validated_step.model_dump()
 
     def _validate_step_args(self, step: PlanStep) -> None:
-        args = step.args
         if step.type == "write_file":
             self._require_args(step, "path", "content")
         elif step.type == "run_command":

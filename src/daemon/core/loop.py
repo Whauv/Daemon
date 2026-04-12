@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from agents.executor import Executor
-from agents.planner import Planner
-from agents.verifier import Verifier
-from core.state import AgentState
-from ui.display import DaemonDisplay
+from daemon.agents.executor import Executor
+from daemon.agents.planner import Planner
+from daemon.agents.verifier import Verifier
+from daemon.core.state import AgentState
+from daemon.ui.display import DaemonDisplay
 
 
 EventHandler = Callable[[dict[str, Any]], None]

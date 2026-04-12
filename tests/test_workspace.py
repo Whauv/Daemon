@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from core.workspace import list_visible_project_directories, resolve_dashboard_workspace, resolve_project_directory
+from daemon.core.workspace import list_visible_project_directories, resolve_dashboard_workspace, resolve_project_directory
 from tests._helpers import cleanup_test_dir, make_test_dir
 
 

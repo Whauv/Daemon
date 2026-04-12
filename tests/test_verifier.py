@@ -4,8 +4,8 @@ import json
 import unittest
 from pathlib import Path
 
-from agents.verifier import Verifier
-from core.state import AgentState
+from daemon.agents.verifier import Verifier
+from daemon.core.state import AgentState
 from tests._helpers import cleanup_test_dir, make_test_dir
 
 

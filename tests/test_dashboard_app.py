@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from dashboard.app import create_dashboard_app
-from dashboard.manager import DashboardRunManager
+from daemon.dashboard.app import create_dashboard_app
+from daemon.dashboard.manager import DashboardRunManager
 from tests._helpers import cleanup_test_dir, make_test_dir
 
 
@@ -17,7 +17,7 @@ class DashboardAppTests(unittest.TestCase):
         try:
             manager = DashboardRunManager(Path(temp_dir))
             app = create_dashboard_app()
-            with patch("dashboard.app.manager", manager):
+            with patch("daemon.dashboard.app.manager", manager):
                 client = TestClient(app)
                 response = client.post("/api/runs", json={"task": "too short", "workspace_dir": "demo"})
 
@@ -31,7 +31,7 @@ class DashboardAppTests(unittest.TestCase):
         try:
             manager = DashboardRunManager(Path(temp_dir))
             app = create_dashboard_app()
-            with patch("dashboard.app.manager", manager):
+            with patch("daemon.dashboard.app.manager", manager):
                 client = TestClient(app)
                 response = client.post(
                     "/api/runs",
@@ -56,7 +56,7 @@ class DashboardAppTests(unittest.TestCase):
             (project / "app.py").write_text("print('hi')", encoding="utf-8")
             app = create_dashboard_app()
             manager = DashboardRunManager(root)
-            with patch("dashboard.app.manager", manager):
+            with patch("daemon.dashboard.app.manager", manager):
                 client = TestClient(app)
                 response = client.get("/api/projects/demo-app/file", params={"path": "../secrets.txt"})
 

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 import unittest
 from pathlib import Path
 
-from core.loop import run
-from core.state import AgentState
+from daemon.core.loop import run
+from daemon.core.state import AgentState
 from tests._helpers import cleanup_test_dir, make_test_dir
 
 
