@@ -223,7 +223,6 @@ class Planner:
         return validated_step.model_dump()
 
     def _validate_step_args(self, step: PlanStep) -> None:
-        args = step.args
         if step.type == "write_file":
             self._require_args(step, "path", "content")
         elif step.type == "run_command":

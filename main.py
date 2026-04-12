@@ -8,17 +8,28 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-from daemon.config import MAX_RETRIES, WORKSPACE_DIR
-from rich.console import Console
 
 
-console = Console()
+def _bootstrap_src_path() -> None:
+    if str(SRC_DIR) not in sys.path:
+        sys.path.insert(0, str(SRC_DIR))
+
+
+def _runtime_defaults() -> tuple[int, str]:
+    _bootstrap_src_path()
+    from daemon.config import MAX_RETRIES, WORKSPACE_DIR
+
+    return MAX_RETRIES, WORKSPACE_DIR
+
+
+def _console():
+    from rich.console import Console
+
+    return Console()
 
 
 def parse_args() -> argparse.Namespace:
+    max_retries, workspace_dir = _runtime_defaults()
     parser = argparse.ArgumentParser(description="Daemon local orchestrator")
     parser.add_argument(
         "--task",
@@ -26,13 +37,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--workspace",
-        default=WORKSPACE_DIR,
+        default=workspace_dir,
         help="Workspace directory where the task will be executed",
     )
     parser.add_argument(
         "--max-retries",
         type=int,
-        default=MAX_RETRIES,
+        default=max_retries,
         help="Maximum retries before the run stops",
     )
     parser.add_argument(
@@ -55,6 +66,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    _bootstrap_src_path()
+    console = _console()
     args = parse_args()
     if args.dashboard:
         from daemon.dashboard.app import app as dashboard_app

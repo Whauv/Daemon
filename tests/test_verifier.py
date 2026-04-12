@@ -4,13 +4,6 @@ import json
 import unittest
 from pathlib import Path
 
-import sys
-
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SRC_DIR = ROOT_DIR / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
 from daemon.agents.verifier import Verifier
 from daemon.core.state import AgentState
 from tests._helpers import cleanup_test_dir, make_test_dir
