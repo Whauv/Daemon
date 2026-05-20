@@ -12,6 +12,9 @@ from daemon.dashboard.manager import DashboardRunManager
 
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+LANDING_PAGE = REPO_ROOT / "landing" / "index.html"
+DASHBOARD_PAGE = STATIC_DIR / "index.html"
 manager = DashboardRunManager(workspace_root=Path(WORKSPACE_DIR))
 
 
@@ -31,8 +34,12 @@ def create_dashboard_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/")
+    def landing_home() -> FileResponse:
+        return FileResponse(LANDING_PAGE)
+
+    @app.get("/dashboard")
     def dashboard_home() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(DASHBOARD_PAGE)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

@@ -12,6 +12,18 @@ from tests._helpers import cleanup_test_dir, make_test_dir
 
 
 class DashboardAppTests(unittest.TestCase):
+    def test_serves_landing_and_dashboard_pages(self) -> None:
+        app = create_dashboard_app()
+        client = TestClient(app)
+
+        landing = client.get("/")
+        dashboard = client.get("/dashboard")
+
+        self.assertEqual(landing.status_code, 200)
+        self.assertIn("Open Product", landing.text)
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn("Daemon Dashboard", dashboard.text)
+
     def test_rejects_short_tasks(self) -> None:
         temp_dir = make_test_dir("dashboard_short_task")
         try:
