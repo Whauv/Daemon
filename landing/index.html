@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daemon | Local AI Agent Orchestrator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0e0e0f;
+      --paper: #f0ede8;
+      --green: #4ade80;
+      --amber: #fb923c;
+      --muted: #52525b;
+      --line: rgba(240, 237, 232, 0.08);
+      --link: rgba(240, 237, 232, 0.55);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --content-width: 1100px;
+      --pad: clamp(1.5rem, 5vw, 4rem);
+      --noise-opacity: 0.035;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--paper);
+      font-family: "Syne", system-ui, sans-serif;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .page-noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: var(--noise-opacity);
+      z-index: 0;
+      background:
+        radial-gradient(600px 600px at 82% 12%, rgba(251, 146, 60, 0.04), transparent 72%),
+        radial-gradient(300px 300px at 10% 78%, rgba(74, 222, 128, 0.03), transparent 70%),
+        radial-gradient(circle at 20% 20%, rgba(240, 237, 232, 0.018) 0 1px, transparent 1px 100%),
+        radial-gradient(circle at 80% 30%, rgba(240, 237, 232, 0.014) 0 1px, transparent 1px 100%),
+        radial-gradient(circle at 40% 70%, rgba(240, 237, 232, 0.012) 0 1px, transparent 1px 100%),
+        linear-gradient(rgba(240, 237, 232, 0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240, 237, 232, 0.01) 1px, transparent 1px),
+        radial-gradient(600px 600px at 82% 12%, rgba(251, 146, 60, 0.04), transparent 72%),
+        radial-gradient(300px 300px at 10% 78%, rgba(74, 222, 128, 0.03), transparent 70%);
+      background-size:
+        auto,
+        auto,
+        180px 180px,
+        220px 220px,
+        260px 260px,
+        3px 3px,
+        3px 3px,
+        auto,
+        auto;
+      background-position:
+        center,
+        center,
+        0 0,
+        40px 60px,
+        120px 20px,
+        0 0,
+        0 0,
+        center,
+        center;
+    }
+
+    .canvas {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+    }
+
+    .nav-shell {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      width: min(760px, calc(100vw - 2rem));
+      max-width: min(760px, calc(100vw - 2rem));
+    }
+
+    .nav-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px 8px 14px;
+      background: rgba(14, 14, 15, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(240, 237, 232, 0.1);
+      border-radius: 999px;
+      transition: border-color 220ms var(--ease), background 220ms var(--ease);
+      overflow: hidden;
+    }
+
+    .nav-pill.scrolled {
+      border-color: rgba(240, 237, 232, 0.18);
+    }
+
+    .nav-brand {
+      font-family: "Syne", system-ui, sans-serif;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--paper);
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-divider {
+      width: 1px;
+      height: 16px;
+      background: rgba(240, 237, 232, 0.12);
+      flex: 0 0 auto;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 0 0 auto;
+    }
+
+    .nav-link {
+      font-family: "Fira Code", monospace;
+      font-size: 11px;
+      color: var(--link);
+      padding: 8px 9px;
+      border-radius: 999px;
+      transition: color 180ms var(--ease), background 180ms var(--ease), border-color 180ms var(--ease);
+      white-space: nowrap;
+    }
+
+    .nav-link:hover {
+      color: var(--paper);
+    }
+
+    .nav-link.button-link {
+      background: rgba(240, 237, 232, 0.12);
+    }
+
+    .nav-link.button-link:hover {
+      background: rgba(240, 237, 232, 0.2);
+    }
+
+    .scroll-shell {
+      width: min(100%, var(--content-width));
+      margin: 0 auto;
+      padding: 138px var(--pad) 56px;
+    }
+
+    .hero {
+      position: relative;
+      padding-top: 72px;
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      font-family: "Fira Code", monospace;
+      font-weight: 400;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(3.4rem, 7vw, 7.4rem);
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+      font-weight: 800;
+      max-width: 10.5ch;
+    }
+
+    .hero-word {
+      opacity: 0;
+    }
+
+    .hero-title .underlined {
+      position: relative;
+      display: inline-block;
+      padding-bottom: 8px;
+    }
+
+    .hero-title .underlined::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 2px;
+      width: 100%;
+      background: var(--amber);
+      transform-origin: left center;
+      transform: scaleX(0);
+      animation: underlineExpand 0.7s var(--ease) 0.6s forwards;
+    }
+
+    .hero-title .working-project {
+      display: inline-block;
+      position: relative;
+    }
+
+    .hero-title .working-project::after {
+      content: "";
+      position: absolute;
+      right: -18px;
+      bottom: 16px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+    }
+
+    .hero-rule,
+    .major-rule,
+    .footer-rule,
+    .brief-rule {
+      border: 0;
+      border-top: 1px solid rgba(240, 237, 232, 0.07);
+      margin: 34px 0 0;
+    }
+
+    .hero-lower {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+      gap: 32px;
+      align-items: start;
+      margin-top: 28px;
+    }
+
+    .hero-copy {
+      max-width: 42ch;
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.75;
+      color: rgba(240, 237, 232, 0.65);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .hero-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 6px;
+      transition: background 180ms var(--ease), border-color 180ms var(--ease), color 180ms var(--ease), opacity 180ms var(--ease);
+    }
+
+    .hero-action.primary {
+      background: var(--paper);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    .hero-action.primary:hover {
+      background: #ffffff;
+    }
+
+    .hero-action.secondary {
+      border: 1px solid rgba(240, 237, 232, 0.2);
+      color: var(--link);
+      font-family: "Fira Code", monospace;
+      font-size: 13px;
+    }
+
+    .hero-action.secondary:hover {
+      color: var(--paper);
+      border-color: rgba(240, 237, 232, 0.4);
+    }
+
+    .hero-log {
+      min-height: 212px;
+      height: 212px;
+      overflow: hidden;
+      position: relative;
+      padding-top: 2px;
+      padding-left: 18px;
+      border-left: 1px solid rgba(240, 237, 232, 0.08);
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      font-family: "Fira Code", monospace;
+      font-size: 12px;
+      color: rgba(240, 237, 232, 0.6);
+      white-space: nowrap;
+    }
+
+    .cursor {
+      display: inline-block;
+      animation: blink 0.8s steps(1, end) infinite;
+    }
+
+    .log-lines {
+      display: grid;
+      gap: 8px;
+    }
+
+    .log-line {
+      font-family: "Fira Code", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(240, 237, 232, 0.75);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .log-line.success {
+      color: var(--green);
+    }
+
+    .log-line.active {
+      color: var(--amber);
+    }
+
+    .log-timestamp {
+      color: var(--muted);
+    }
+
+    .diag-divider {
+      position: relative;
+      height: 92px;
+      margin: 48px 0 22px;
+    }
+
+    .diag-divider::before,
+    .diag-divider::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 52%;
+      border-top: 1px solid rgba(240, 237, 232, 0.07);
+    }
+
+    .diag-divider::before {
+      left: -2%;
+      transform: rotate(5deg);
+    }
+
+    .diag-divider::after {
+      right: -2%;
+      transform: rotate(-5deg);
+    }
+
+    .content-block {
+      position: relative;
+      counter-increment: macro;
+      opacity: 1;
+      transform: none;
+    }
+
+    .content-block::before {
+      content: counter(macro, decimal-leading-zero);
+      position: absolute;
+      top: -18px;
+      right: max(-3vw, -22px);
+      z-index: -1;
+      font-family: "Fira Code", monospace;
+      font-size: clamp(3.6rem, 12vw, 8rem);
+      color: rgba(240, 237, 232, 0.028);
+      line-height: 1;
+      transform: scale(0.6);
+      transform-origin: center;
+      transition: transform 500ms var(--ease), opacity 500ms var(--ease);
+      pointer-events: none;
+    }
+
+    .content-block.revealed::before,
+    .content-block::before {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .content-block h2 {
+      margin: 0;
+      font-size: clamp(2.1rem, 4.6vw, 3.6rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      font-weight: 800;
+      color: var(--paper);
+    }
+
+    .workflow-wrap {
+      position: relative;
+      min-height: 720px;
+      margin-top: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .process-ring {
+      width: min(340px, 54vw);
+      height: min(340px, 54vw);
+      transform: rotate(-90deg);
+    }
+
+    .ring-base {
+      fill: none;
+      stroke: rgba(240, 237, 232, 0.08);
+      stroke-width: 1;
+    }
+
+    .arc-segment {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 236;
+      stroke-dashoffset: 0;
+    }
+
+    .arc-plan {
+      stroke: var(--amber);
+    }
+
+    .arc-execute {
+      stroke: rgba(240, 237, 232, 0.4);
+    }
+
+    .arc-verify {
+      stroke: var(--green);
+    }
+
+    .arc-inspect {
+      stroke: rgba(240, 237, 232, 0.2);
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .ring-center-label {
+      font-family: "Fira Code", monospace;
+      font-size: clamp(1.1rem, 2vw, 1.5rem);
+      color: rgba(240, 237, 232, 0.82);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .workflow-point {
+      position: absolute;
+      width: 220px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .workflow-point.top {
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    .workflow-point.right {
+      right: 38px;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: left;
+    }
+
+    .workflow-point.bottom {
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    .workflow-point.left {
+      left: 38px;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: right;
+    }
+
+    .point-number {
+      font-family: "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+    }
+
+    .point-title {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .point-copy {
+      margin: 0;
+      max-width: 20ch;
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(240, 237, 232, 0.55);
+    }
+
+    .mission-brief {
+      margin-top: 104px;
+      padding: 30px 28px 26px;
+      background: rgba(240, 237, 232, 0.02);
+    }
+
+    .brief-meta {
+      margin: 12px 0 0;
+      font-family: "Fira Code", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .brief-list {
+      display: grid;
+      gap: 26px;
+      max-width: 680px;
+      margin-top: 28px;
+    }
+
+    .brief-item {
+      display: grid;
+      gap: 12px;
+    }
+
+    .brief-label {
+      font-family: "Fira Code", monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .code-shell {
+      position: relative;
+    }
+
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: rgba(240, 237, 232, 0.4);
+      font-family: "Fira Code", monospace;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 180ms var(--ease);
+    }
+
+    .copy-button:hover {
+      color: var(--paper);
+    }
+
+    .code-block {
+      margin: 0;
+      padding: 18px 20px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      border-left: 2px solid var(--amber);
+      font-family: "Fira Code", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      color: rgba(240, 237, 232, 0.84);
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .brief-copy {
+      margin: 0;
+      color: rgba(240, 237, 232, 0.6);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .brief-footer {
+      margin-top: 28px;
+      font-family: "Fira Code", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .accordion {
+      display: grid;
+      gap: 0;
+      margin-top: 36px;
+    }
+
+    .accordion-item {
+      border-bottom: 1px solid rgba(240, 237, 232, 0.07);
+      opacity: 1;
+      transform: none;
+    }
+
+    .accordion-trigger {
+      width: 100%;
+      padding: 22px 0;
+      background: transparent;
+      border: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      text-align: left;
+      cursor: pointer;
+      color: rgba(240, 237, 232, 0.75);
+      transition: color 180ms var(--ease);
+    }
+
+    .accordion-trigger:hover {
+      color: var(--paper);
+    }
+
+    .accordion-title {
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+
+    .accordion-icon {
+      font-family: "Fira Code", monospace;
+      font-size: 22px;
+      color: rgba(240, 237, 232, 0.3);
+      transition: color 180ms var(--ease), transform 280ms var(--ease);
+    }
+
+    .accordion-trigger:hover .accordion-icon,
+    .accordion-item.active .accordion-icon {
+      color: var(--amber);
+    }
+
+    .accordion-item.active .accordion-icon {
+      transform: rotate(45deg);
+    }
+
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.4s var(--ease), opacity 0.4s var(--ease), padding-bottom 0.4s var(--ease);
+      padding-bottom: 0;
+    }
+
+    .accordion-item.active .accordion-content {
+      max-height: 200px;
+      opacity: 1;
+      padding-bottom: 22px;
+    }
+
+    .accordion-copy {
+      margin: 0;
+      max-width: 60ch;
+      font-size: 15px;
+      line-height: 1.75;
+      color: rgba(240, 237, 232, 0.6);
+    }
+
+    .motif {
+      margin-top: 14px;
+      font-family: "Fira Code", monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .statement-block {
+      --noise-opacity: 0.05;
+      margin-top: 110px;
+      padding: 104px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .statement-list {
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      width: min(100%, 1000px);
+      margin: 34px auto 0;
+    }
+
+    .statement {
+      margin: 0;
+      font-size: clamp(1.8rem, 3.5vw, 3.2rem);
+      line-height: 1.08;
+      font-weight: 800;
+      color: rgba(240, 237, 232, 0.9);
+      max-width: 18ch;
+    }
+
+    .statement .amber {
+      color: var(--amber);
+    }
+
+    .statement .green {
+      color: var(--green);
+    }
+
+    .statement-separator {
+      font-family: "Fira Code", monospace;
+      color: rgba(240, 237, 232, 0.24);
+      font-size: 18px;
+    }
+
+    .footer {
+      padding: 40px 0 24px;
+      text-align: center;
+    }
+
+    .footer-copy,
+    .footer-links,
+    .footer-note {
+      font-family: "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--link);
+      transition: color 180ms var(--ease);
+    }
+
+    .footer-links a:hover {
+      color: var(--paper);
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      font-family: "Syne", system-ui, sans-serif;
+      color: rgba(240, 237, 232, 0.2);
+    }
+
+    .footer-note .cursor {
+      font-family: "Fira Code", monospace;
+    }
+
+    .mobile-workflow {
+      display: none;
+      margin-top: 28px;
+      gap: 18px;
+    }
+
+    .mobile-step {
+      display: grid;
+      gap: 6px;
+      padding-left: 2px;
+    }
+
+    .mobile-step .point-copy {
+      max-width: none;
+    }
+
+    @keyframes underlineExpand {
+      to {
+        transform: scaleX(1);
+      }
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .statement {
+      opacity: 1;
+    }
+
+    @media (max-width: 1240px) {
+      .workflow-wrap {
+        min-height: 0;
+      }
+
+      .process-ring,
+      .ring-center,
+      .workflow-point {
+        display: none;
+      }
+
+      .mobile-workflow {
+        display: grid;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .hero-title {
+        max-width: 9.8ch;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hero-lower {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-log {
+        min-height: 180px;
+        height: 180px;
+        padding-left: 0;
+        border-left: 0;
+        border-top: 1px solid rgba(240, 237, 232, 0.08);
+        padding-top: 18px;
+      }
+
+      .content-block::before {
+        right: 0;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .nav-shell {
+        top: 14px;
+        width: calc(100vw - 1.2rem);
+        max-width: none;
+      }
+
+      .nav-pill {
+        display: grid;
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+        gap: 8px;
+        border-radius: 24px;
+        padding: 10px 12px;
+        overflow: visible;
+      }
+
+      .nav-divider {
+        display: none;
+      }
+
+      .nav-brand {
+        text-align: center;
+      }
+
+      .nav-links {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .scroll-shell {
+        padding-top: 116px;
+      }
+
+      .hero {
+        padding-top: 38px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --noise-opacity: 0.02;
+      }
+
+      .nav-brand {
+        font-size: 10px;
+      }
+
+      .scroll-shell {
+        padding-top: 88px;
+        padding-bottom: 44px;
+      }
+
+      .hero {
+        padding-top: 26px;
+      }
+
+      .hero-title {
+        font-size: clamp(2.7rem, 12vw, 4.8rem);
+        line-height: 0.94;
+        max-width: 9.5ch;
+      }
+
+      .hero-title .working-project::after {
+        right: -10px;
+        bottom: 10px;
+      }
+
+      .hero-log {
+        order: 2;
+        height: auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .hero-copy-wrap {
+        order: 1;
+      }
+
+      .hero-actions,
+      .footer-links {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hero-copy {
+        font-size: 15px;
+      }
+
+      .diag-divider {
+        height: 56px;
+        margin: 34px 0 12px;
+      }
+
+      .diag-divider::before,
+      .diag-divider::after {
+        width: 56%;
+      }
+
+      .content-block::before {
+        font-size: clamp(2.4rem, 18vw, 4.8rem);
+        right: 0;
+        top: -8px;
+      }
+
+      .mission-brief {
+        margin-top: 82px;
+        padding: 22px 16px;
+      }
+
+      .content-block h2 {
+        font-size: clamp(2rem, 11vw, 3rem);
+      }
+
+      .accordion-title {
+        font-size: 20px;
+      }
+
+      .statement-block {
+        margin-top: 88px;
+        padding: 82px 0;
+      }
+
+      .statement {
+        font-size: clamp(1.35rem, 8.4vw, 2.1rem);
+        max-width: 15ch;
+      }
+
+      .hero-action,
+      .nav-link.button-link {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .nav-pill {
+        padding: 8px 8px 8px 10px;
+      }
+
+      .nav-links {
+        gap: 4px;
+      }
+
+      .nav-link {
+        font-size: 11px;
+        padding: 8px 8px;
+      }
+
+      .hero-title {
+        font-size: clamp(2.4rem, 12vw, 3.8rem);
+        max-width: 8.8ch;
+      }
+
+      .hero-copy {
+        font-size: 14px;
+      }
+
+      .log-header,
+      .log-line {
+        font-size: 11px;
+      }
+
+      .accordion-trigger {
+        padding: 18px 0;
+      }
+
+      .accordion-copy {
+        font-size: 14px;
+      }
+
+      .motif {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-noise" aria-hidden="true"></div>
+
+  <div class="canvas">
+    <div class="nav-shell">
+      <nav class="nav-pill" id="nav-pill" aria-label="Primary">
+        <span class="nav-brand">LOCAL AI AGENT ORCHESTRATOR</span>
+        <span class="nav-divider" aria-hidden="true"></span>
+        <div class="nav-links">
+          <a class="nav-link" href="https://github.com/Whauv/Daemon" target="_blank" rel="noopener noreferrer">View GitHub Repo</a>
+          <a class="nav-link button-link" href="http://127.0.0.1:8080/dashboard" target="_blank" rel="noopener noreferrer">Open Product</a>
+        </div>
+      </nav>
+    </div>
+
+    <main class="scroll-shell">
+      <header class="hero">
+        <p class="eyebrow">Local AI Agent Orchestrator</p>
+        <h1 class="hero-title" aria-label="Daemon helps you turn a single prompt into a working project.">
+          <span class="hero-word">Daemon</span>
+          <span class="hero-word">helps</span>
+          <span class="hero-word">you</span>
+          <span class="hero-word">turn</span>
+          <span class="hero-word">a</span>
+          <span class="hero-word underlined">single</span>
+          <span class="hero-word">prompt</span>
+          <span class="hero-word">into</span>
+          <span class="hero-word">a</span>
+          <span class="hero-word working-project">working project.</span>
+        </h1>
+        <hr class="hero-rule">
+        <div class="hero-lower">
+          <div class="hero-copy-wrap">
+            <p class="hero-copy">Plan the work, execute each step inside a guarded workspace, verify the result, and monitor everything through a local dashboard built for real progress.</p>
+            <div class="hero-actions">
+              <a class="hero-action primary" href="http://127.0.0.1:8080/dashboard" target="_blank" rel="noopener noreferrer">Open Product</a>
+              <a class="hero-action secondary" href="https://github.com/Whauv/Daemon" target="_blank" rel="noopener noreferrer">View GitHub Repo</a>
+            </div>
+          </div>
+          <aside class="hero-log" aria-label="Execution log">
+            <div class="log-header">daemon · v1.0 · running <span class="cursor">█</span></div>
+            <div class="log-lines" id="log-lines">
+              <div class="log-line"><span class="log-timestamp">[00:00.1]</span> › Parsing prompt: "build a FastAPI starter"</div>
+              <div class="log-line"><span class="log-timestamp">[00:00.4]</span> › Breaking into 6 execution steps</div>
+              <div class="log-line"><span class="log-timestamp">[00:01.2]</span> › Step 1/6: scaffolding project structure</div>
+              <div class="log-line active"><span class="log-timestamp">[00:02.8]</span> › Creating: main.py, models.py, router.py</div>
+              <div class="log-line active"><span class="log-timestamp">[00:03.1]</span> › Running: pip install fastapi uvicorn</div>
+              <div class="log-line success"><span class="log-timestamp">[00:06.2]</span> › Verifying: test GET /health → 200 OK ✓</div>
+              <div class="log-line"><span class="log-timestamp">[00:08.1]</span> › Step 3/6: generating README.md</div>
+              <div class="log-line success"><span class="log-timestamp">[00:09.4]</span> › All steps verified. Project ready.</div>
+            </div>
+          </aside>
+        </div>
+      </header>
+
+      <div class="diag-divider" aria-hidden="true"></div>
+
+      <section class="content-block" id="workflow-section">
+        <p class="eyebrow">How It Works</p>
+        <h2>From idea to output in one loop</h2>
+        <div class="workflow-wrap">
+          <svg class="process-ring" viewBox="0 0 400 400" aria-hidden="true">
+            <circle class="ring-base" cx="200" cy="200" r="150"></circle>
+            <circle class="arc-segment arc-plan" cx="200" cy="200" r="150" pathLength="100" stroke-dasharray="23 77" stroke-dashoffset="23"></circle>
+            <circle class="arc-segment arc-execute" cx="200" cy="200" r="150" pathLength="100" stroke-dasharray="23 77" stroke-dashoffset="-2"></circle>
+            <circle class="arc-segment arc-verify" cx="200" cy="200" r="150" pathLength="100" stroke-dasharray="23 77" stroke-dashoffset="-27"></circle>
+            <circle class="arc-segment arc-inspect" cx="200" cy="200" r="150" pathLength="100" stroke-dasharray="23 77" stroke-dashoffset="-52"></circle>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-center-label" id="ring-center-label">Plan</div>
+          </div>
+          <div class="workflow-point top">
+            <span class="point-number">01</span>
+            <p class="point-title">Plan</p>
+            <p class="point-copy">Daemon uses Groq to turn a high-level task into ordered, dependency-aware steps.</p>
+          </div>
+          <div class="workflow-point right">
+            <span class="point-number">02</span>
+            <p class="point-title">Execute</p>
+            <p class="point-copy">It creates folders, writes files, runs commands, and keeps every change inside the workspace.</p>
+          </div>
+          <div class="workflow-point bottom">
+            <span class="point-number">03</span>
+            <p class="point-title">Verify</p>
+            <p class="point-copy">Each run is checked with task-aware verification so the agent can catch missing pieces before it stops.</p>
+          </div>
+          <div class="workflow-point left">
+            <span class="point-number">04</span>
+            <p class="point-title">Inspect</p>
+            <p class="point-copy">You can open the dashboard to track live updates, inspect files, and launch generated apps.</p>
+          </div>
+          <div class="mobile-workflow" aria-label="Workflow list">
+            <div class="mobile-step">
+              <span class="point-number">01</span>
+              <p class="point-title">Plan</p>
+              <p class="point-copy">Daemon uses Groq to turn a high-level task into ordered, dependency-aware steps.</p>
+            </div>
+            <div class="mobile-step">
+              <span class="point-number">02</span>
+              <p class="point-title">Execute</p>
+              <p class="point-copy">It creates folders, writes files, runs commands, and keeps every change inside the workspace.</p>
+            </div>
+            <div class="mobile-step">
+              <span class="point-number">03</span>
+              <p class="point-title">Verify</p>
+              <p class="point-copy">Each run is checked with task-aware verification so the agent can catch missing pieces before it stops.</p>
+            </div>
+            <div class="mobile-step">
+              <span class="point-number">04</span>
+              <p class="point-title">Inspect</p>
+              <p class="point-copy">You can open the dashboard to track live updates, inspect files, and launch generated apps.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-block mission-brief">
+        <p class="eyebrow" style="color: var(--amber);">Install</p>
+        <p class="brief-meta">DATE: 2026 · OPERATOR: LOCAL · AUTH: GROQ_API_KEY REQUIRED</p>
+        <hr class="brief-rule">
+        <h2 style="margin-top: 18px;">Get Daemon running locally</h2>
+        <div class="brief-list">
+          <article class="brief-item">
+            <div class="brief-label">§ 1 · Clone and install</div>
+            <div class="code-shell">
+              <button class="copy-button" data-copy-target="install-1" type="button">copy</button>
+              <pre class="code-block" id="install-1"><code>git clone https://github.com/Whauv/Daemon.git
+cd Daemon
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</code></pre>
+            </div>
+          </article>
+          <article class="brief-item">
+            <div class="brief-label">§ 2 · Configure your environment</div>
+            <div class="code-shell">
+              <button class="copy-button" data-copy-target="install-2" type="button">copy</button>
+              <pre class="code-block" id="install-2"><code>copy .env.example .env
+# add your GROQ_API_KEY in .env</code></pre>
+            </div>
+            <p class="brief-copy">Daemon currently requires a Groq API key for planning, execution assistance, and verification.</p>
+          </article>
+          <article class="brief-item">
+            <div class="brief-label">§ 3 · Launch the dashboard</div>
+            <div class="code-shell">
+              <button class="copy-button" data-copy-target="install-3" type="button">copy</button>
+              <pre class="code-block" id="install-3"><code>python main.py --dashboard</code></pre>
+            </div>
+            <p class="brief-copy">The product opens in your browser and the dashboard is available locally.</p>
+          </article>
+        </div>
+        <hr class="brief-rule" style="margin-top: 28px;">
+        <div class="brief-footer">END OF INSTALLATION GUIDE · Daemon v1.0</div>
+      </section>
+
+      <div class="diag-divider" aria-hidden="true"></div>
+
+      <section class="content-block">
+        <p class="eyebrow">Use Cases</p>
+        <h2>Built for practical local automation</h2>
+        <div class="accordion" id="use-case-accordion">
+          <article class="accordion-item active">
+            <button class="accordion-trigger" type="button" aria-expanded="true">
+              <span class="accordion-title">API scaffolding</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <p class="accordion-copy">Create FastAPI or backend starter projects with verification steps.</p>
+              <div class="motif">main.py
+models.py
+router.py
+README.md</div>
+            </div>
+          </article>
+          <article class="accordion-item">
+            <button class="accordion-trigger" type="button" aria-expanded="false">
+              <span class="accordion-title">Frontend prototypes</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <p class="accordion-copy">Generate React or Vite projects and inspect the output from the same interface.</p>
+              <div class="motif">src/
+  App.jsx
+  components/
+  styles.css
+public/</div>
+            </div>
+          </article>
+          <article class="accordion-item">
+            <button class="accordion-trigger" type="button" aria-expanded="false">
+              <span class="accordion-title">Local experimentation</span>
+              <span class="accordion-icon">+</span>
+            </button>
+            <div class="accordion-content">
+              <p class="accordion-copy">Try ideas quickly without giving the agent unrestricted access to your machine.</p>
+              <div class="motif">[00:03.2] › Creating isolated workspace
+[00:04.1] › Running sandbox test
+[00:04.8] › Verification complete ✓</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="statement-block">
+        <p class="eyebrow">What Daemon does</p>
+        <div class="statement-list">
+          <p class="statement"><span class="amber">Breaks</span> large tasks into an execution plan</p>
+          <div class="statement-separator">·</div>
+          <p class="statement"><span class="amber">Writes</span> files and <span class="amber">runs</span> commands in a guarded workspace</p>
+          <div class="statement-separator">·</div>
+          <p class="statement"><span class="green">Verifies</span> outcomes before marking work complete</p>
+          <div class="statement-separator">·</div>
+          <p class="statement"><span class="green">Shows</span> live progress, logs, and generated projects in the dashboard</p>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <hr class="footer-rule">
+        <div class="footer-copy">DAEMON · LOCAL AI AGENT ORCHESTRATOR · v1.0</div>
+        <div class="footer-links">
+          <a href="http://127.0.0.1:8080/dashboard" target="_blank" rel="noopener noreferrer">Open Product</a>
+          <span>·</span>
+          <a href="https://github.com/Whauv/Daemon" target="_blank" rel="noopener noreferrer">View GitHub Repo</a>
+        </div>
+        <div class="footer-note">Built for practical local automation. <span class="cursor">█</span></div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const heroWords = document.querySelectorAll(".hero-word");
+    heroWords.forEach((word, index) => {
+      word.style.transition = `opacity 0.4s ease ${index * 40}ms`;
+    });
+    requestAnimationFrame(() => {
+      heroWords.forEach((word) => {
+        word.style.opacity = "1";
+      });
+    });
+
+    const navPill = document.getElementById("nav-pill");
+    const onScroll = () => {
+      navPill.classList.toggle("scrolled", window.scrollY > 100);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    const accordionItems = document.querySelectorAll(".accordion-item");
+    accordionItems.forEach((item) => {
+      const trigger = item.querySelector(".accordion-trigger");
+      trigger.addEventListener("click", () => {
+        accordionItems.forEach((other) => {
+          const otherTrigger = other.querySelector(".accordion-trigger");
+          const shouldOpen = other === item ? !other.classList.contains("active") : false;
+          other.classList.toggle("active", shouldOpen);
+          otherTrigger.setAttribute("aria-expanded", String(shouldOpen));
+        });
+      });
+    });
+
+    document.querySelectorAll(".copy-button").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const targetId = button.getAttribute("data-copy-target");
+        const source = targetId ? document.getElementById(targetId) : null;
+        if (!source) {
+          return;
+        }
+        const original = button.textContent;
+        try {
+          await navigator.clipboard.writeText(source.innerText.trim());
+          button.textContent = "check";
+          setTimeout(() => {
+            button.textContent = original;
+          }, 2000);
+        } catch (error) {
+          button.textContent = "error";
+          setTimeout(() => {
+            button.textContent = original;
+          }, 2000);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

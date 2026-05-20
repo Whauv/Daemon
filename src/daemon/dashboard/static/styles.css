@@ -32,11 +32,187 @@ body {
   overflow-y: auto;
 }
 
+a {
+  color: inherit;
+}
+
 .shell {
   max-width: 1500px;
   margin: 0 auto;
   padding: 28px;
   min-height: 100vh;
+}
+
+.landing-shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 32px 28px 56px;
+  min-height: 100vh;
+}
+
+.landing-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.landing-brand,
+.landing-status-card,
+.landing-section,
+.feature-card,
+.info-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.landing-brand,
+.landing-status-card {
+  padding: 28px;
+}
+
+.landing-brand h1 {
+  max-width: 14ch;
+  font-size: clamp(2.5rem, 5vw, 4.8rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.landing-copy {
+  max-width: 58ch;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.16s ease, opacity 0.16s ease, border-color 0.16s ease;
+}
+
+.action-link:hover {
+  transform: translateY(-1px);
+}
+
+.primary-link {
+  background: var(--accent);
+  color: #062128;
+}
+
+.secondary-link {
+  background: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.landing-status-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.status-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.feature-bullets {
+  margin: 18px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.landing-main {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.landing-section {
+  padding: 26px;
+}
+
+.section-heading h2,
+.feature-card h3,
+.info-card h3 {
+  margin-top: 0;
+}
+
+.section-heading h2 {
+  margin-bottom: 0;
+}
+
+.feature-grid,
+.install-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.feature-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.install-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.feature-card,
+.info-card {
+  padding: 22px;
+}
+
+.feature-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 32px;
+  margin-bottom: 14px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(92, 198, 176, 0.12);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.compact-card h3 {
+  margin-bottom: 8px;
+}
+
+.code-block {
+  margin: 14px 0 0;
+  padding: 16px;
+  overflow-x: auto;
+  background: var(--panel-alt);
+  border: 1px solid rgba(52, 91, 107, 0.65);
+  border-radius: 16px;
+  color: #d7ecf2;
 }
 
 .intro-overlay {
@@ -76,6 +252,19 @@ body {
   gap: 18px;
   align-items: flex-start;
   margin-bottom: 22px;
+}
+
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.small-link {
+  min-height: 40px;
+  padding: 10px 16px;
+  font-size: 0.92rem;
 }
 
 .eyebrow {
@@ -446,6 +635,12 @@ button.secondary {
 }
 
 @media (max-width: 1100px) {
+  .landing-header,
+  .feature-grid,
+  .install-grid {
+    grid-template-columns: 1fr;
+  }
+
   .controls,
   .run-state,
   .events,
@@ -473,12 +668,29 @@ button.secondary {
 }
 
 @media (max-width: 720px) {
+  .landing-shell,
+  .shell {
+    padding: 18px;
+  }
+
   .inline-row,
   .button-row,
   .panel-header,
   .progress-meta {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .landing-actions {
+    flex-direction: column;
+  }
+
+  .hero-links {
+    flex-direction: column;
+  }
+
+  .action-link {
+    width: 100%;
   }
 
   .inline-row > .checkbox {
