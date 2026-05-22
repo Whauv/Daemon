@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,10 @@ class DashboardRunManager:
         self._runs: dict[str, dict[str, Any]] = {}
         self._launches: dict[str, dict[str, Any]] = {}
         self._launch_processes: dict[str, subprocess.Popen[Any]] = {}
+        self._action_timestamps: dict[str, float] = {}
+        self.max_concurrent_runs = 2
+        self.max_preview_bytes = 100_000
+        self.max_full_preview_bytes = 1_000_000
 
     def start_run(
         self,
@@ -37,8 +42,10 @@ class DashboardRunManager:
         max_retries: int,
         dry_run: bool,
     ) -> dict[str, Any]:
+        self._guard_action("start_run")
         run_id = uuid4().hex
         workspace = resolve_dashboard_workspace(workspace_dir, self.workspace_root)
+        self._guard_run_capacity(task=task, workspace_dir=str(workspace))
 
         record = {
             "id": run_id,
@@ -132,7 +139,8 @@ class DashboardRunManager:
 
     def list_runs(self) -> list[dict[str, Any]]:
         with self._lock:
-            return [self._public_run_view(run) for run in self._runs.values()]
+            runs = [self._public_run_view(run) for run in self._runs.values()]
+        return sorted(runs, key=lambda item: item["created_at"], reverse=True)
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         with self._lock:
@@ -143,6 +151,7 @@ class DashboardRunManager:
             return list(self._runs[run_id]["events"])
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
+        self._guard_action("cancel_run", min_interval=0.25)
         with self._lock:
             if run_id not in self._runs:
                 raise KeyError(run_id)
@@ -151,6 +160,31 @@ class DashboardRunManager:
             self._runs[run_id]["updated_at"] = _utc_now()
         self._append_event(run_id, {"type": "status", "message": "Cancellation requested."})
         return self.get_run(run_id)
+
+    def clone_run(self, run_id: str) -> dict[str, Any]:
+        source = self.get_run(run_id)
+        return self.start_run(
+            task=source["task"],
+            workspace_dir=source["workspace_dir"],
+            max_retries=source["max_retries"],
+            dry_run=source["dry_run"],
+        )
+
+    def get_session_log(self, run_id: str) -> dict[str, Any]:
+        with self._lock:
+            record = self._runs.get(run_id)
+            if record is None:
+                raise KeyError(run_id)
+            session_log_path = record.get("session_log_path")
+        if not session_log_path:
+            raise ValueError("Session log is not available for this run yet.")
+        target = Path(session_log_path).resolve()
+        if not target.exists():
+            raise ValueError("Session log file could not be found.")
+        return {
+            "path": str(target),
+            "content": target.read_text(encoding="utf-8", errors="ignore"),
+        }
 
     def list_projects(self, workspace_dir: str | None = None) -> list[dict[str, Any]]:
         projects: list[dict[str, Any]] = []
@@ -183,7 +217,14 @@ class DashboardRunManager:
                 files.append({"path": str(path.relative_to(project_root)).replace("\\", "/"), "size": path.stat().st_size})
         return sorted(files, key=lambda item: item["path"])
 
-    def read_project_file(self, project_name: str, relative_path: str, workspace_dir: str | None = None) -> dict[str, Any]:
+    def read_project_file(
+        self,
+        project_name: str,
+        relative_path: str,
+        workspace_dir: str | None = None,
+        *,
+        full: bool = False,
+    ) -> dict[str, Any]:
         project_root = resolve_project_directory(
             project_name,
             workspace_dir=workspace_dir or self.workspace_root,
@@ -194,12 +235,42 @@ class DashboardRunManager:
             target.relative_to(project_root)
         except ValueError as exc:
             raise ValueError("Requested file escapes the selected project.") from exc
+        if not target.exists() or not target.is_file():
+            raise ValueError("Requested file does not exist.")
+        size = target.stat().st_size
+        if self._looks_binary(target):
+            return {
+                "path": str(target.relative_to(project_root)).replace("\\", "/"),
+                "content": "",
+                "truncated": False,
+                "binary": True,
+                "size": size,
+                "message": "Binary files cannot be previewed in the dashboard.",
+            }
+        byte_limit = self.max_full_preview_bytes if full else self.max_preview_bytes
+        content = target.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(content.encode("utf-8")) > byte_limit
+        if truncated:
+            encoded = content.encode("utf-8")[:byte_limit]
+            content = encoded.decode("utf-8", errors="ignore")
         return {
             "path": str(target.relative_to(project_root)).replace("\\", "/"),
-            "content": target.read_text(encoding="utf-8", errors="ignore"),
+            "content": content,
+            "truncated": truncated and not full,
+            "binary": False,
+            "size": size,
+            "message": "Preview truncated. Load full file to inspect the rest." if truncated and not full else "",
         }
 
-    def launch_project(self, project_name: str, workspace_dir: str | None = None) -> dict[str, Any]:
+    def launch_project(
+        self,
+        project_name: str,
+        workspace_dir: str | None = None,
+        *,
+        skip_guard: bool = False,
+    ) -> dict[str, Any]:
+        if not skip_guard:
+            self._guard_action("launch_project", min_interval=0.5)
         project_root = resolve_project_directory(
             project_name,
             workspace_dir=workspace_dir or self.workspace_root,
@@ -249,9 +320,83 @@ class DashboardRunManager:
             self._launch_processes[project_name] = process
         return record
 
+    def stop_launch(self, project_name: str, *, skip_guard: bool = False) -> dict[str, Any]:
+        if not skip_guard:
+            self._guard_action("stop_launch", min_interval=0.25)
+        with self._lock:
+            process = self._launch_processes.get(project_name)
+            launch = self._launches.get(project_name)
+        if process is None or launch is None or process.poll() is not None:
+            raise ValueError("Project is not currently running.")
+
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+        stopped = {**launch, "status": "stopped", "stopped_at": _utc_now()}
+        with self._lock:
+            self._launches[project_name] = stopped
+        return stopped
+
+    def restart_launch(self, project_name: str, workspace_dir: str | None = None) -> dict[str, Any]:
+        try:
+            self.stop_launch(project_name, skip_guard=True)
+        except ValueError:
+            pass
+        return self.launch_project(project_name, workspace_dir=workspace_dir, skip_guard=True)
+
+    def list_launches(self) -> list[dict[str, Any]]:
+        with self._lock:
+            launches = []
+            for name, launch in self._launches.items():
+                process = self._launch_processes.get(name)
+                is_running = bool(process and process.poll() is None)
+                launches.append({**launch, "running": is_running})
+        return sorted(launches, key=lambda item: item["project_name"].lower())
+
     def get_launch(self, project_name: str) -> dict[str, Any] | None:
         with self._lock:
-            return self._launches.get(project_name)
+            launch = self._launches.get(project_name)
+            if launch is None:
+                return None
+            process = self._launch_processes.get(project_name)
+            return {**launch, "running": bool(process and process.poll() is None)}
+
+    def _guard_action(self, action: str, *, min_interval: float = 0.5) -> None:
+        now = time.monotonic()
+        last = self._action_timestamps.get(action, 0.0)
+        if now - last < min_interval:
+            raise ValueError("Please wait a moment before repeating that action.")
+        self._action_timestamps[action] = now
+
+    def _guard_run_capacity(self, *, task: str, workspace_dir: str) -> None:
+        with self._lock:
+            active_runs = [
+                run for run in self._runs.values()
+                if run["status"] in {"queued", "running", "cancelling", "verifying", "executing", "planning"}
+            ]
+            if len(active_runs) >= self.max_concurrent_runs:
+                raise ValueError("Too many active runs. Wait for one to finish before starting another.")
+            duplicate = next(
+                (
+                    run for run in active_runs
+                    if run["task"] == task and run["workspace_dir"] == workspace_dir
+                ),
+                None,
+            )
+            if duplicate is not None:
+                raise ValueError("A run for this task and workspace is already active.")
+
+    @staticmethod
+    def _looks_binary(path: Path) -> bool:
+        sample = path.read_bytes()[:1024]
+        if b"\x00" in sample:
+            return True
+        text_chars = bytes(range(32, 127)) + b"\n\r\t\b\f"
+        return bool(sample.translate(None, text_chars))
 
     def _is_cancel_requested(self, run_id: str) -> bool:
         with self._lock:
