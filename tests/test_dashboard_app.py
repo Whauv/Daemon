@@ -18,11 +18,18 @@ class DashboardAppTests(unittest.TestCase):
 
         landing = client.get("/")
         dashboard = client.get("/dashboard")
+        missing = client.get("/missing-page")
+        favicon = client.get("/favicon.ico")
 
         self.assertEqual(landing.status_code, 200)
         self.assertIn("Open Product", landing.text)
+        self.assertIn("Local AI Agent Orchestrator", landing.text)
+        self.assertIn("Daemon", landing.text)
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn("Daemon Dashboard", dashboard.text)
+        self.assertEqual(missing.status_code, 404)
+        self.assertIn("Page not found", missing.text)
+        self.assertEqual(favicon.status_code, 200)
 
     def test_rejects_short_tasks(self) -> None:
         temp_dir = make_test_dir("dashboard_short_task")
@@ -57,7 +64,39 @@ class DashboardAppTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
         finally:
             cleanup_test_dir(temp_dir)
-            cleanup_test_dir(other_dir)
+
+    def test_can_clone_run_and_read_session_log(self) -> None:
+        temp_dir = make_test_dir("dashboard_clone")
+        try:
+            root = Path(temp_dir)
+            manager = DashboardRunManager(root)
+            app = create_dashboard_app()
+            with patch("daemon.dashboard.app.manager", manager):
+                client = TestClient(app)
+                response = client.post(
+                    "/api/runs",
+                    json={
+                        "task": "build a React todo app with filters and responsive layout",
+                        "workspace_dir": "demo",
+                        "dry_run": True,
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                run_id = response.json()["id"]
+                manager._update_run(run_id, status="done")
+                manager._action_timestamps.clear()
+
+                cloned = client.post(f"/api/runs/{run_id}/clone")
+                self.assertEqual(cloned.status_code, 200)
+
+                session_log = root / "demo" / "daemon_session_log.json"
+                session_log.write_text('{"status":"done"}', encoding="utf-8")
+                manager._update_run(run_id, session_log_path=str(session_log))
+                log_response = client.get(f"/api/runs/{run_id}/session-log")
+                self.assertEqual(log_response.status_code, 200)
+                self.assertIn("status", log_response.json()["content"])
+        finally:
+            cleanup_test_dir(temp_dir)
 
     def test_rejects_project_file_traversal(self) -> None:
         temp_dir = make_test_dir("dashboard_traversal")

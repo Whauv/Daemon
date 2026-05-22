@@ -1,10 +1,15 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daemon Dashboard</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <meta
+    name="description"
+    content="Run Daemon tasks, inspect progress, review session history, and manage generated projects from a local dashboard."
+  >
+  <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css?v=20260522b">
 </head>
 <body>
   <div id="intro-overlay" class="intro-overlay">
@@ -87,13 +92,36 @@
       </section>
 
       <section class="panel events">
-        <h2>Live Updates</h2>
+        <div class="panel-header">
+          <h2>Live Updates</h2>
+          <div class="toolbar">
+            <label class="sr-only" for="event-filter-input">Filter live updates</label>
+            <input id="event-filter-input" class="toolbar-input" type="text" placeholder="Filter logs">
+            <button id="copy-events-button" class="secondary">Copy Logs</button>
+          </div>
+        </div>
         <div id="events-list" class="events-list"></div>
+      </section>
+
+      <section class="panel history">
+        <div class="panel-header">
+          <h2>Run History</h2>
+          <button id="refresh-history-button" class="secondary">Refresh History</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
       </section>
 
       <section class="panel projects">
         <h2>Generated Projects</h2>
         <div id="projects-list" class="projects-list"></div>
+      </section>
+
+      <section class="panel launches">
+        <div class="panel-header">
+          <h2>Active Launches</h2>
+          <button id="refresh-launches-button" class="secondary">Refresh Launches</button>
+        </div>
+        <div id="launches-list" class="launches-list"></div>
       </section>
 
       <section class="panel inspector">
@@ -103,12 +131,18 @@
         </div>
         <div class="inspector-grid">
           <div id="files-list" class="files-list"></div>
-          <pre id="file-content" class="file-content">Select a file to preview it here.</pre>
+          <div class="file-viewer">
+            <div id="file-meta" class="file-meta">Select a file to preview it here.</div>
+            <pre id="file-content" class="file-content">Select a file to preview it here.</pre>
+            <div class="file-viewer-actions">
+              <button id="load-full-file-button" class="secondary" hidden>Load Full File</button>
+            </div>
+          </div>
         </div>
       </section>
     </main>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=20260522b"></script>
 </body>
 </html>
