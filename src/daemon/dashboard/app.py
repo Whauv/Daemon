@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field
 
 from daemon.config import WORKSPACE_DIR
@@ -15,6 +16,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LANDING_PAGE = REPO_ROOT / "landing" / "index.html"
 DASHBOARD_PAGE = STATIC_DIR / "index.html"
+NOT_FOUND_PAGE = STATIC_DIR / "404.html"
+FAVICON_PATH = STATIC_DIR / "favicon.svg"
 manager = DashboardRunManager(workspace_root=Path(WORKSPACE_DIR))
 
 
@@ -33,13 +36,39 @@ def create_dashboard_app() -> FastAPI:
     app = FastAPI(title="Daemon Dashboard")
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        if exc.status_code == 404:
+            return FileResponse(NOT_FOUND_PAGE, status_code=404)
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
     @app.get("/")
     def landing_home() -> FileResponse:
-        return FileResponse(LANDING_PAGE)
+        return FileResponse(
+            LANDING_PAGE,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
     @app.get("/dashboard")
     def dashboard_home() -> FileResponse:
-        return FileResponse(DASHBOARD_PAGE)
+        return FileResponse(
+            DASHBOARD_PAGE,
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon() -> FileResponse:
+        return FileResponse(FAVICON_PATH, media_type="image/svg+xml")
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
@@ -85,6 +114,24 @@ def create_dashboard_app() -> FastAPI:
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Run not found") from exc
 
+    @app.post("/api/runs/{run_id}/clone")
+    def clone_run(run_id: str) -> dict:
+        try:
+            return manager.clone_run(run_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Run not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/runs/{run_id}/session-log")
+    def session_log(run_id: str) -> dict:
+        try:
+            return manager.get_session_log(run_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Run not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.get("/api/projects")
     def list_projects(workspace_dir: str | None = None) -> list[dict]:
         try:
@@ -100,9 +147,19 @@ def create_dashboard_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/api/projects/{project_name}/file")
-    def project_file(project_name: str, path: str = Query(...), workspace_dir: str | None = None) -> dict:
+    def project_file(
+        project_name: str,
+        path: str = Query(...),
+        workspace_dir: str | None = None,
+        full: bool = False,
+    ) -> dict:
         try:
-            return manager.read_project_file(project_name=project_name, relative_path=path, workspace_dir=workspace_dir)
+            return manager.read_project_file(
+                project_name=project_name,
+                relative_path=path,
+                workspace_dir=workspace_dir,
+                full=full,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -116,9 +173,27 @@ def create_dashboard_app() -> FastAPI:
     @app.get("/api/projects/{project_name}/launch")
     def launch_status(project_name: str) -> dict:
         launch = manager.get_launch(project_name)
-        if launch is None:
+        if launch is None or not launch.get("running", False):
             raise HTTPException(status_code=404, detail="Project is not running")
         return launch
+
+    @app.get("/api/launches")
+    def list_launches() -> list[dict]:
+        return manager.list_launches()
+
+    @app.post("/api/projects/{project_name}/stop")
+    def stop_project(project_name: str) -> dict:
+        try:
+            return manager.stop_launch(project_name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/projects/{project_name}/restart")
+    def restart_project(project_name: str, workspace_dir: str | None = None) -> dict:
+        try:
+            return manager.restart_launch(project_name, workspace_dir=workspace_dir)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return app
 
