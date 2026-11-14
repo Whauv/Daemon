@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
-from daemon.core.groq_client import call_llm
+from daemon.core.groq_client import call_llm, extract_json
 from daemon.core.state import AgentState
+from daemon.core.workspace import iter_project_files
 from daemon.tools.file_tools import read_file
 from daemon.tools.shell_tools import run_command
+
+
+API_TASK_PATTERN = re.compile(r"\b(fastapi|apis?)\b")
+FILE_STEP_TYPES = {"write_file", "create_dir"}
 
 
 class Verifier:
@@ -71,8 +76,10 @@ class Verifier:
             }
 
     def _verify_task_from_workspace(self, state: AgentState) -> dict[str, Any]:
-        python_files = self._workspace_python_files(state.workspace_dir)
-        workspace_root = Path(state.workspace_dir)
+        # Only inspect the project this run produced, so older projects in a shared
+        # workspace cannot make a new run look complete.
+        workspace_root = self._verification_root(state)
+        python_files = self._workspace_python_files(str(workspace_root))
         package_json = workspace_root / "package.json"
 
         if self._looks_like_fastapi_task(state.task, python_files):
@@ -177,8 +184,8 @@ class Verifier:
         python_files: list[Path],
     ) -> dict[str, Any]:
         generated_files = [
-            path for path in workspace_root.rglob("*")
-            if path.is_file() and not any(part in {"venv", ".venv", "__pycache__", "node_modules"} for part in path.parts)
+            path for path in iter_project_files(workspace_root)
+            if path.name != "daemon_session_log.json"
         ]
         if not generated_files:
             return {
@@ -203,18 +210,32 @@ class Verifier:
 
     @staticmethod
     def _workspace_python_files(workspace_dir: str) -> list[Path]:
-        root = Path(workspace_dir)
-        files: list[Path] = []
-        for path in root.rglob("*.py"):
-            if any(part in {"venv", ".venv", "__pycache__", "node_modules"} for part in path.parts):
+        return list(iter_project_files(Path(workspace_dir), "*.py"))
+
+    @staticmethod
+    def _verification_root(state: AgentState) -> Path:
+        """Return the single project folder this run wrote into, else the workspace root."""
+        workspace = Path(state.workspace_dir)
+        top_level: set[str] = set()
+        for step in state.completed_steps:
+            if step.get("type") not in FILE_STEP_TYPES:
                 continue
-            files.append(path)
-        return files
+            raw = str(step.get("args", {}).get("path", "")).replace("\\", "/").strip()
+            parts = PurePosixPath(raw).parts
+            if not parts or parts[0] in {"/", "..", "."}:
+                continue
+            if step.get("type") == "write_file" and len(parts) == 1:
+                return workspace  # The run wrote straight into the workspace root.
+            top_level.add(parts[0])
+        if len(top_level) == 1:
+            candidate = workspace / top_level.pop()
+            if candidate.is_dir():
+                return candidate
+        return workspace
 
     @staticmethod
     def _looks_like_fastapi_task(task: str, python_files: list[Path]) -> bool:
-        task_lower = task.lower()
-        if "fastapi" in task_lower or "api" in task_lower:
+        if API_TASK_PATTERN.search(task.lower()):
             return True
         return any("fastapi" in path.read_text(encoding="utf-8", errors="ignore").lower() for path in python_files)
 
@@ -237,12 +258,7 @@ class Verifier:
 
     @staticmethod
     def extract_json(content: str) -> dict[str, Any]:
-        text = content.strip()
-        if text.startswith("```"):
-            lines = text.splitlines()
-            if len(lines) >= 3:
-                text = "\n".join(lines[1:-1]).strip()
-        return json.loads(text)
+        return extract_json(content)
 
 
 TaskVerifier = Verifier

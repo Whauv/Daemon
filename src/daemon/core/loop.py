@@ -28,10 +28,25 @@ class VerifierContract(Protocol):
     def verify_task(self, state: AgentState) -> dict[str, Any]: ...
 
 
-def save_session_log(state: AgentState, workspace_dir: str) -> Path:
-    log_path = Path(workspace_dir) / "daemon_session_log.json"
-    log_path.write_text(state.model_dump_json(indent=2), encoding="utf-8")
-    return log_path
+SESSION_LOG_FILENAME = "daemon_session_log.json"
+
+
+def save_session_log(state: AgentState, workspace_dir: str, run_log_path: Path | None = None) -> Path:
+    """Write the session log and return the path callers should report.
+
+    The workspace-level ``daemon_session_log.json`` is always written for CLI
+    compatibility. When ``run_log_path`` is given (dashboard runs), the log is also
+    written there so concurrent runs sharing a workspace keep separate logs.
+    """
+    payload = state.model_dump_json(indent=2)
+    legacy_path = Path(workspace_dir) / SESSION_LOG_FILENAME
+    legacy_path.write_text(payload, encoding="utf-8")
+    if run_log_path is None:
+        return legacy_path
+    run_log_path = run_log_path.resolve()
+    run_log_path.parent.mkdir(parents=True, exist_ok=True)
+    run_log_path.write_text(payload, encoding="utf-8")
+    return run_log_path
 
 
 def _emit(event_handler: EventHandler | None, event: dict[str, Any]) -> None:
@@ -54,6 +69,7 @@ def run(
     planner: PlannerContract | None = None,
     executor: ExecutorContract | None = None,
     verifier: VerifierContract | None = None,
+    session_log_path: Path | None = None,
 ) -> AgentState:
     planner = planner or Planner(display=display)
     executor = executor or Executor()
@@ -146,7 +162,7 @@ def run(
             _emit(event_handler, {"type": "failed", "result": result, "state": state.model_dump()})
             break
 
-    session_log = save_session_log(state, state.workspace_dir)
+    session_log = save_session_log(state, state.workspace_dir, session_log_path)
     _emit(event_handler, {"type": "session_saved", "path": str(session_log), "state": state.model_dump()})
     return state
 

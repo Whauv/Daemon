@@ -15,7 +15,7 @@ python main.py --dashboard
 ## Test Commands
 
 ```bash
-.venv\Scripts\python.exe -m unittest discover -s tests -v
+.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
 ```
 
 ## Folder Map

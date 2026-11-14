@@ -17,3 +17,10 @@ def make_test_dir(prefix: str) -> Path:
 
 def cleanup_test_dir(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
+
+
+def make_client(app):
+    """Return a TestClient that addresses the app through a trusted local host."""
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, base_url="http://127.0.0.1")

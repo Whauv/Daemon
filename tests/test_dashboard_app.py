@@ -4,17 +4,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 
 from daemon.dashboard.app import create_dashboard_app
 from daemon.dashboard.manager import DashboardRunManager
-from tests._helpers import cleanup_test_dir, make_test_dir
+from tests._helpers import cleanup_test_dir, make_client, make_test_dir
 
 
 class DashboardAppTests(unittest.TestCase):
     def test_serves_landing_and_dashboard_pages(self) -> None:
         app = create_dashboard_app()
-        client = TestClient(app)
+        client = make_client(app)
 
         landing = client.get("/")
         dashboard = client.get("/dashboard")
@@ -37,7 +36,7 @@ class DashboardAppTests(unittest.TestCase):
             manager = DashboardRunManager(Path(temp_dir))
             app = create_dashboard_app()
             with patch("daemon.dashboard.app.manager", manager):
-                client = TestClient(app)
+                client = make_client(app)
                 response = client.post("/api/runs", json={"task": "too short", "workspace_dir": "demo"})
 
             self.assertEqual(response.status_code, 422)
@@ -51,7 +50,7 @@ class DashboardAppTests(unittest.TestCase):
             manager = DashboardRunManager(Path(temp_dir))
             app = create_dashboard_app()
             with patch("daemon.dashboard.app.manager", manager):
-                client = TestClient(app)
+                client = make_client(app)
                 response = client.post(
                     "/api/runs",
                     json={
@@ -72,7 +71,7 @@ class DashboardAppTests(unittest.TestCase):
             manager = DashboardRunManager(root)
             app = create_dashboard_app()
             with patch("daemon.dashboard.app.manager", manager):
-                client = TestClient(app)
+                client = make_client(app)
                 response = client.post(
                     "/api/runs",
                     json={
@@ -108,7 +107,7 @@ class DashboardAppTests(unittest.TestCase):
             app = create_dashboard_app()
             manager = DashboardRunManager(root)
             with patch("daemon.dashboard.app.manager", manager):
-                client = TestClient(app)
+                client = make_client(app)
                 response = client.get("/api/projects/demo-app/file", params={"path": "../secrets.txt"})
 
             self.assertEqual(response.status_code, 400)

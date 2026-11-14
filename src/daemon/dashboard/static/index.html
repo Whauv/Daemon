@@ -9,140 +9,196 @@
     content="Run Daemon tasks, inspect progress, review session history, and manage generated projects from a local dashboard."
   >
   <link rel="icon" href="/favicon.ico" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/styles.css?v=20260522b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+  <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
-  <div id="intro-overlay" class="intro-overlay">
-    <div class="intro-card">
-      <p class="eyebrow">Welcome</p>
-      <h1>Daemon</h1>
-      <p class="subcopy">A local dashboard for planning tasks, running the agent, tracking progress, inspecting generated files, and launching projects without living in the command line.</p>
-      <ul class="intro-points">
-        <li>Start normal runs or dry runs</li>
-        <li>Watch live step updates and progress</li>
-        <li>Inspect generated projects and files</li>
-        <li>Launch supported apps with one click</li>
-      </ul>
-      <button id="intro-enter-button" class="primary">Open Dashboard</button>
+  <a class="skip-link" href="#run-panel">Skip to current run</a>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <a class="brand" href="/" aria-label="Daemon home">DAEMON</a>
+      <span class="topbar-crumb" aria-hidden="true">/</span>
+      <h1 class="topbar-title">Daemon Dashboard</h1>
     </div>
-  </div>
-  <div class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Local Agent Orchestrator</p>
-        <h1>Daemon Dashboard</h1>
-        <p class="subcopy">Run tasks, track the plan live, inspect generated projects, and launch apps without living in the terminal.</p>
-        <div class="hero-links">
-          <a class="action-link secondary-link small-link" href="/">Back to Landing Page</a>
-          <a class="action-link secondary-link small-link" href="https://github.com/Whauv/Daemon" target="_blank" rel="noreferrer">GitHub Repo</a>
-        </div>
-      </div>
-      <div class="hero-card">
-        <div class="status-dot"></div>
-        <span id="health-label">Checking backend...</span>
-      </div>
-    </header>
+    <div class="topbar-actions">
+      <p class="health" id="health" data-state="checking">
+        <span class="health-dot" aria-hidden="true"></span>
+        <span id="health-label">Checking backend…</span>
+      </p>
+      <a class="link-quiet" href="/">Landing</a>
+      <a class="link-quiet" href="https://github.com/Whauv/Daemon" target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only"> (opens in a new tab)</span></a>
+    </div>
+  </header>
 
-    <main class="grid">
-      <section class="panel controls">
-        <h2>Start a Run</h2>
-        <label>
-          Task
-          <textarea id="task-input" rows="4" placeholder="Create a python CRUD REST API using FastAPI and SQLite with 4 endpoints"></textarea>
-        </label>
-        <label>
-          Workspace
-          <input id="workspace-input" type="text" placeholder="C:\path\to\workspace">
-        </label>
-        <div class="inline-row">
-          <label>
-            Max retries
-            <input id="retries-input" type="number" min="1" value="3">
-          </label>
-          <label class="checkbox">
-            <input id="dry-run-input" type="checkbox">
-            Dry run only
-          </label>
-        </div>
-        <div class="button-row">
-          <button id="run-button" class="primary">Run Task</button>
-          <button id="cancel-button" class="secondary">Cancel Run</button>
-          <button id="refresh-projects-button" class="secondary">Refresh Projects</button>
-        </div>
-        <p id="run-message" class="hint">Use the intro card and run form to start a task.</p>
+  <div class="layout">
+    <!-- Column 1: compose a run, then browse history -->
+    <aside class="col col-compose" aria-label="Run controls">
+      <section class="panel" aria-labelledby="compose-heading">
+        <header class="panel-head">
+          <h2 class="panel-title" id="compose-heading">New run</h2>
+        </header>
+        <form class="compose" id="run-form" novalidate>
+          <div class="field">
+            <label class="field-label" for="task-input">Task</label>
+            <textarea
+              id="task-input"
+              name="task"
+              rows="5"
+              required
+              maxlength="4000"
+              aria-describedby="task-hint task-error"
+              placeholder="Create a Python CRUD REST API using FastAPI and SQLite with 4 endpoints"
+            ></textarea>
+            <div class="field-foot">
+              <p class="field-hint" id="task-hint">Describe the outcome in at least 5 words.</p>
+              <p class="field-count" id="task-count" aria-hidden="true">0 words</p>
+            </div>
+            <p class="field-error" id="task-error" role="alert"></p>
+          </div>
+
+          <details class="disclosure" id="advanced-options">
+            <summary>Run options</summary>
+            <div class="disclosure-body">
+              <div class="field">
+                <label class="field-label" for="workspace-input">Workspace</label>
+                <input id="workspace-input" name="workspace" type="text" autocomplete="off" spellcheck="false" placeholder="Default workspace" aria-describedby="workspace-hint">
+                <p class="field-hint" id="workspace-hint">Folder name or path inside the configured workspace root.</p>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label class="field-label" for="retries-input">Max retries</label>
+                  <input id="retries-input" name="max_retries" type="number" min="1" max="10" step="1" value="3" inputmode="numeric">
+                </div>
+                <label class="toggle" for="dry-run-input">
+                  <input id="dry-run-input" name="dry_run" type="checkbox">
+                  <span class="toggle-track" aria-hidden="true"><span class="toggle-thumb"></span></span>
+                  <span class="toggle-text">Dry run <span class="toggle-sub">plan only</span></span>
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <div class="button-row">
+            <button class="btn btn-primary" id="run-button" type="submit">Run task</button>
+            <button class="btn btn-ghost" id="cancel-button" type="button" disabled>Cancel run</button>
+          </div>
+        </form>
       </section>
 
-      <section class="panel run-state">
-        <div class="panel-header">
-          <h2>Current Run</h2>
-          <span id="run-status-badge" class="badge neutral">idle</span>
-        </div>
-        <p id="run-task-label" class="run-task">No active run</p>
-        <div class="progress-block">
-          <div class="progress-meta">
-            <span>Progress</span>
-            <span id="progress-label">0 / 0</span>
-          </div>
-          <div class="progress-track">
-            <div id="progress-fill" class="progress-fill"></div>
-          </div>
-        </div>
-        <div id="run-meta" class="run-meta">Waiting for a run to start.</div>
-        <div id="plan-list" class="plan-list"></div>
+      <section class="panel panel-fill" aria-labelledby="history-heading">
+        <header class="panel-head">
+          <h2 class="panel-title" id="history-heading">History</h2>
+          <button class="btn btn-icon" id="refresh-history-button" type="button" aria-label="Refresh run history" title="Refresh run history">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4"/></svg>
+          </button>
+        </header>
+        <ul class="list history-list" id="history-list" aria-busy="true"></ul>
       </section>
+    </aside>
 
-      <section class="panel events">
-        <div class="panel-header">
-          <h2>Live Updates</h2>
+    <!-- Column 2: the active run -->
+    <main class="col col-run" id="run-panel" tabindex="-1" aria-labelledby="run-heading">
+      <section class="panel panel-fill">
+        <header class="panel-head">
+          <h2 class="panel-title" id="run-heading">Current run</h2>
+          <span class="badge" id="run-status" data-status="idle">idle</span>
+        </header>
+
+        <div class="run-summary">
+          <p class="run-task" id="run-task">No run selected</p>
+          <dl class="run-meta" id="run-meta">
+            <div><dt>Run</dt><dd id="meta-run-id">—</dd></div>
+            <div><dt>Mode</dt><dd id="meta-mode">—</dd></div>
+            <div><dt>Workspace</dt><dd id="meta-workspace">—</dd></div>
+            <div><dt>Retries</dt><dd id="meta-retries">—</dd></div>
+            <div><dt>Started</dt><dd id="meta-started">—</dd></div>
+          </dl>
+          <div class="progress">
+            <div class="progress-head">
+              <span id="progress-caption">Progress</span>
+              <span class="progress-count" id="progress-label">0 / 0</span>
+            </div>
+            <div
+              class="progress-track"
+              id="progress-track"
+              role="progressbar"
+              aria-labelledby="progress-caption"
+              aria-valuemin="0"
+              aria-valuemax="0"
+              aria-valuenow="0"
+              aria-valuetext="No steps yet"
+            >
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+          <p class="run-error" id="run-error" hidden></p>
+        </div>
+
+        <ol class="timeline" id="plan-list" aria-label="Plan steps"></ol>
+      </section>
+    </main>
+
+    <!-- Column 3: tabbed workbench -->
+    <section class="col col-work" aria-label="Workbench">
+      <div class="panel panel-fill panel-tabs">
+        <div class="tabs" role="tablist" aria-label="Workbench views" id="workbench-tabs">
+          <button class="tab" role="tab" id="tab-log" aria-controls="panel-log" aria-selected="true" type="button">Live log <span class="tab-count" id="count-log"></span></button>
+          <button class="tab" role="tab" id="tab-projects" aria-controls="panel-projects" aria-selected="false" tabindex="-1" type="button">Projects <span class="tab-count" id="count-projects"></span></button>
+          <button class="tab" role="tab" id="tab-launches" aria-controls="panel-launches" aria-selected="false" tabindex="-1" type="button">Launches <span class="tab-count" id="count-launches"></span></button>
+          <button class="tab" role="tab" id="tab-inspector" aria-controls="panel-inspector" aria-selected="false" tabindex="-1" type="button">Inspector</button>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-log" aria-labelledby="tab-log" tabindex="0">
           <div class="toolbar">
-            <label class="sr-only" for="event-filter-input">Filter live updates</label>
-            <input id="event-filter-input" class="toolbar-input" type="text" placeholder="Filter logs">
-            <button id="copy-events-button" class="secondary">Copy Logs</button>
+            <label class="sr-only" for="event-filter-input">Filter live log</label>
+            <input class="input-search" id="event-filter-input" type="search" placeholder="Filter log…" autocomplete="off">
+            <button class="btn btn-small" id="copy-events-button" type="button">Copy log</button>
           </div>
+          <ol class="list event-list" id="events-list" aria-label="Run events, newest first"></ol>
         </div>
-        <div id="events-list" class="events-list"></div>
-      </section>
 
-      <section class="panel history">
-        <div class="panel-header">
-          <h2>Run History</h2>
-          <button id="refresh-history-button" class="secondary">Refresh History</button>
+        <div class="tab-panel" role="tabpanel" id="panel-projects" aria-labelledby="tab-projects" tabindex="0" hidden>
+          <div class="toolbar">
+            <p class="toolbar-note" id="projects-scope">Default workspace</p>
+            <button class="btn btn-small" id="refresh-projects-button" type="button">Refresh</button>
+          </div>
+          <ul class="list card-list" id="projects-list" aria-busy="true"></ul>
         </div>
-        <div id="history-list" class="history-list"></div>
-      </section>
 
-      <section class="panel projects">
-        <h2>Generated Projects</h2>
-        <div id="projects-list" class="projects-list"></div>
-      </section>
-
-      <section class="panel launches">
-        <div class="panel-header">
-          <h2>Active Launches</h2>
-          <button id="refresh-launches-button" class="secondary">Refresh Launches</button>
+        <div class="tab-panel" role="tabpanel" id="panel-launches" aria-labelledby="tab-launches" tabindex="0" hidden>
+          <div class="toolbar">
+            <p class="toolbar-note">Local servers started from generated projects.</p>
+            <button class="btn btn-small" id="refresh-launches-button" type="button">Refresh</button>
+          </div>
+          <ul class="list card-list" id="launches-list" aria-busy="true"></ul>
         </div>
-        <div id="launches-list" class="launches-list"></div>
-      </section>
 
-      <section class="panel inspector">
-        <div class="panel-header">
-          <h2>Project Inspector</h2>
-          <span id="inspector-project-label" class="muted">No project selected</span>
-        </div>
-        <div class="inspector-grid">
-          <div id="files-list" class="files-list"></div>
-          <div class="file-viewer">
-            <div id="file-meta" class="file-meta">Select a file to preview it here.</div>
-            <pre id="file-content" class="file-content">Select a file to preview it here.</pre>
-            <div class="file-viewer-actions">
-              <button id="load-full-file-button" class="secondary" hidden>Load Full File</button>
+        <div class="tab-panel tab-panel-inspector" role="tabpanel" id="panel-inspector" aria-labelledby="tab-inspector" tabindex="0" hidden>
+          <div class="inspector">
+            <nav class="inspector-files" aria-labelledby="inspector-title">
+              <p class="inspector-title" id="inspector-title">No project selected</p>
+              <ul class="list file-list" id="files-list"></ul>
+            </nav>
+            <div class="viewer">
+              <div class="viewer-head">
+                <p class="viewer-meta" id="file-meta">Select a file, session log, or launch log to view it here.</p>
+                <button class="btn btn-small" id="load-full-file-button" type="button" hidden>Load full file</button>
+              </div>
+              <pre class="viewer-body" id="file-content" tabindex="0" aria-labelledby="file-meta"></pre>
             </div>
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
   </div>
 
-  <script src="/static/app.js?v=20260522b"></script>
+  <!-- Toasts are visual only; the same text is announced through #announcer. -->
+  <div class="toast-region" id="toast-region"></div>
+  <p class="sr-only" id="announcer" aria-live="polite" aria-atomic="true"></p>
 </body>
 </html>

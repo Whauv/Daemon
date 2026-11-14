@@ -8,15 +8,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" href="/favicon.ico" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/css/tokens.css" />
   <style>
+    /* Page-level aliases over the shared design tokens (static/css/tokens.css). */
     :root {
-      --bg: #080808;
+      --bg: var(--bg-0);
       --bg-soft: #0f0f0f;
-      --text: #f0ede6;
       --muted: rgba(240, 237, 230, 0.6);
       --line: rgba(240, 237, 230, 0.14);
       --line-soft: rgba(240, 237, 230, 0.08);
-      --accent: #bfff00;
       --max: 1480px;
     }
 
@@ -426,6 +427,22 @@
       letter-spacing: 0.08em;
     }
 
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    /* Final, motionless state — used when the user prefers reduced motion or GSAP failed to load. */
+    .no-motion .terminal-line { opacity: 1; }
+    .no-motion .step-fill { transform: scaleY(1); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
     @keyframes blink {
       0%, 49% { opacity: 1; }
       50%, 100% { opacity: 0.4; }
@@ -616,6 +633,21 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
   <script>
     (function () {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
+        // No scroll choreography: show every animated element in its final state.
+        document.documentElement.classList.add("no-motion");
+        const nav = document.getElementById("navbar");
+        window.addEventListener("scroll", () => nav.classList.toggle("is-scrolled", window.scrollY > 80), { passive: true });
+        document.querySelectorAll(".metric-num").forEach((el) => {
+          const target = Number(el.dataset.target || 0);
+          const prefix = el.dataset.prefix || "";
+          const suffix = el.dataset.suffix || "";
+          el.textContent = prefix ? `${prefix}${String(target).padStart(2, "0")}${suffix}` : `${target}${suffix}`;
+        });
+        return;
+      }
+
       gsap.registerPlugin(ScrollTrigger);
 
       const navbar = document.getElementById("navbar");

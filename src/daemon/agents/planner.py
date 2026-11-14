@@ -206,13 +206,16 @@ class Planner:
         if "npm" in lowered:
             return f"cmd /c \"cd {project_dir} && npm run build\""
         if "uvicorn" in lowered or "curl" in lowered:
+            # A server process would block the run, so verify by importing the app
+            # instead. The check must stay generic: it cannot know which routes the
+            # task asked for (the task-level verifier handles endpoint counts).
             return (
                 f"{project_dir}\\venv\\Scripts\\python.exe -c "
                 "\"import pathlib, sys; "
                 f"sys.path.insert(0, str(pathlib.Path(r'{project_dir}').resolve())); "
                 "from app import app; "
                 "routes = [route.path for route in app.routes if hasattr(route, 'path')]; "
-                "assert '/users/' in routes; "
+                "assert routes, 'app has no routes'; "
                 "print('verify ok')\""
             )
         return normalized

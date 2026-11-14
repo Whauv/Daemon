@@ -1,0 +1,92 @@
+/*
+ * Daemon design tokens — shared by the landing page, dashboard, and 404 page.
+ * Visual language: a dark "operator console" with a single acid-lime accent,
+ * a grotesk for UI copy, and a mono face for machine output and metadata.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces (darkest → lightest) */
+  --bg-0: #080808;
+  --bg-1: #0d0d0c;
+  --bg-2: #131311;
+  --bg-3: #1a1a17;
+  --bg-4: #22221e;
+  --bg-glow: #12100c;
+
+  /* Lines */
+  --line-soft: rgba(240, 237, 230, 0.07);
+  --line: rgba(240, 237, 230, 0.12);
+  --line-strong: rgba(240, 237, 230, 0.22);
+
+  /* Text */
+  --text: #f0ede6;
+  --text-muted: rgba(240, 237, 230, 0.66);
+  --text-faint: rgba(240, 237, 230, 0.46);
+
+  /* Brand */
+  --accent: #bfff00;
+  --accent-ink: #0b0d00;
+  --accent-soft: rgba(191, 255, 0, 0.12);
+  --accent-line: rgba(191, 255, 0, 0.38);
+
+  /* Status — each has a solid tone and a tinted background */
+  --status-idle: rgba(240, 237, 230, 0.55);
+  --status-idle-bg: rgba(240, 237, 230, 0.06);
+  --status-active: #7dd3fc;
+  --status-active-bg: rgba(125, 211, 252, 0.12);
+  --status-success: var(--accent);
+  --status-success-bg: var(--accent-soft);
+  --status-warning: #ffb547;
+  --status-warning-bg: rgba(255, 181, 71, 0.12);
+  --status-danger: #ff6b6b;
+  --status-danger-bg: rgba(255, 107, 107, 0.12);
+
+  /* Type */
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-display: "Syne", var(--font-sans);
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: clamp(1.6rem, 2.4vw, 2.1rem);
+  --tracking-label: 0.18em;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+  --radius-pill: 999px;
+  --focus-ring: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--accent);
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Layout */
+  --topbar-h: 56px;
+  --max-width: 1600px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}

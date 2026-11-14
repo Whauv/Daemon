@@ -10,7 +10,7 @@
 ## Local Checks
 
 ```bash
-.venv\Scripts\python.exe -m unittest discover -s tests -v
+.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
 ```
 
 ## Pull Requests

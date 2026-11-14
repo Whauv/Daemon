@@ -3,14 +3,56 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections import deque
 from typing import Any
 
 from rich.console import Console
 
-from daemon.config import GROQ_API_KEY, MAX_RETRIES, MODEL_NAME, REQUEST_TIMEOUT
+from daemon.config import (
+    GROQ_API_KEY,
+    MAX_REQUESTS_PER_MINUTE,
+    MAX_RETRIES,
+    MODEL_NAME,
+    REQUEST_TIMEOUT,
+    RETRY_BACKOFF_SECONDS,
+)
 
 
 console = Console(stderr=True)
+
+
+def extract_json(content: str) -> dict[str, Any]:
+    """Parse a JSON object from an LLM reply, tolerating a surrounding Markdown code fence."""
+    text = content.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3:
+            text = "\n".join(lines[1:-1]).strip()
+    return json.loads(text)
+
+
+class RequestRateLimiter:
+    """Thread-safe sliding-window limiter: at most ``max_requests`` calls per ``window`` seconds."""
+
+    def __init__(self, max_requests: int, window: float = 60.0) -> None:
+        self.max_requests = max_requests
+        self.window = window
+        self._calls: deque[float] = deque()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        if self.max_requests <= 0:
+            return
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                while self._calls and now - self._calls[0] >= self.window:
+                    self._calls.popleft()
+                if len(self._calls) < self.max_requests:
+                    self._calls.append(now)
+                    return
+                wait_for = self.window - (now - self._calls[0])
+            time.sleep(max(wait_for, 0.05))
 
 
 def _status_code_from_error(error: Exception) -> int | None:
@@ -48,6 +90,7 @@ class GroqClientManager:
         except Exception:
             Groq = None
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY and Groq is not None else None
+        self.rate_limiter = RequestRateLimiter(MAX_REQUESTS_PER_MINUTE)
 
     def call_llm(
         self,
@@ -77,6 +120,7 @@ class GroqClientManager:
 
         last_error: Exception | None = None
         for attempt in range(MAX_RETRIES):
+            self.rate_limiter.acquire()
             try:
                 response = self.client.chat.completions.create(**request_kwargs)
                 return response.model_dump()
@@ -84,7 +128,7 @@ class GroqClientManager:
                 last_error = exc
                 if not self._is_rate_limit_error(exc) or attempt >= MAX_RETRIES - 1:
                     break
-                sleep_for = 2**attempt
+                sleep_for = RETRY_BACKOFF_SECONDS * (2**attempt)
                 console.print(
                     f"[yellow]Rate limit hit (429). Retrying in {sleep_for} second(s)...[/yellow]"
                 )
@@ -118,7 +162,7 @@ class GroqClientManager:
             json_output=True,
         )
         content = payload["choices"][0]["message"]["content"]
-        return self._extract_json(content)
+        return extract_json(content)
 
     @staticmethod
     def _estimate_tokens(messages: list[dict[str, str]]) -> int:
@@ -133,12 +177,7 @@ class GroqClientManager:
 
     @staticmethod
     def _extract_json(content: str) -> dict[str, Any]:
-        text = content.strip()
-        if text.startswith("```"):
-            lines = text.splitlines()
-            if len(lines) >= 3:
-                text = "\n".join(lines[1:-1]).strip()
-        return json.loads(text)
+        return extract_json(content)
 
 
 def call_llm(
