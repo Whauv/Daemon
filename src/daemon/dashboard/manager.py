@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import codecs
+import logging
 import socket
 import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO, Any
 from uuid import uuid4
@@ -28,9 +29,11 @@ MAX_EVENTS_PER_RUN = 200
 BINARY_SNIFF_BYTES = 8192
 LAUNCH_LOG_TAIL_BYTES = 20_000
 
+logger = logging.getLogger(__name__)
+
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _run_not_found() -> NotFoundError:
@@ -140,7 +143,8 @@ class DashboardRunManager:
                 plan=final_state.plan,
                 session_log_path=str(session_log_path),
             )
-        except Exception as exc:
+        # Worker-thread boundary: any error must mark the run failed instead of leaving it stuck as "running".
+        except Exception as exc:  # noqa: BLE001
             self._update_run(run_id, status="failed", error=str(exc))
             self._append_event(run_id, {"type": "fatal", "message": str(exc)})
 
@@ -438,8 +442,9 @@ class DashboardRunManager:
             if process.poll() is None:
                 try:
                     self._terminate(process)
-                except Exception:
-                    pass
+                except (OSError, subprocess.SubprocessError):
+                    # Keep stopping the remaining servers; this one may already have exited.
+                    logger.warning("Could not stop launched project %s (pid %s)", name, process.pid, exc_info=True)
             with self._lock:
                 self._close_log_locked(name)
 

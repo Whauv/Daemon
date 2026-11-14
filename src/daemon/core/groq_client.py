@@ -4,7 +4,7 @@ import json
 import threading
 import time
 from collections import deque
-from typing import Any
+from typing import Any, Self
 
 from rich.console import Console
 
@@ -16,7 +16,6 @@ from daemon.config import (
     REQUEST_TIMEOUT,
     RETRY_BACKOFF_SECONDS,
 )
-
 
 console = Console(stderr=True)
 
@@ -69,11 +68,11 @@ def _status_code_from_error(error: Exception) -> int | None:
 
 
 class GroqClientManager:
-    _instance: "GroqClientManager | None" = None
+    _instance: GroqClientManager | None = None
     _instance_lock = threading.Lock()
     _model_name = MODEL_NAME
 
-    def __new__(cls) -> "GroqClientManager":
+    def __new__(cls) -> Self:
         if cls._instance is None:
             with cls._instance_lock:
                 if cls._instance is None:
@@ -87,7 +86,7 @@ class GroqClientManager:
         self._initialized = True
         try:
             from groq import Groq
-        except Exception:
+        except ImportError:
             Groq = None
         self.client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY and Groq is not None else None
         self.rate_limiter = RequestRateLimiter(MAX_REQUESTS_PER_MINUTE)
@@ -124,7 +123,8 @@ class GroqClientManager:
             try:
                 response = self.client.chat.completions.create(**request_kwargs)
                 return response.model_dump()
-            except Exception as exc:
+            # The SDK raises many unrelated types (API, HTTP, timeout); every one is wrapped and re-raised below.
+            except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 if not self._is_rate_limit_error(exc) or attempt >= MAX_RETRIES - 1:
                     break

@@ -7,7 +7,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-except Exception:  # pragma: no cover - python-dotenv is a declared dependency
+except ImportError:  # pragma: no cover - python-dotenv is a declared dependency
     def load_dotenv(*args: object, **kwargs: object) -> bool:
         return False
 
@@ -33,7 +33,7 @@ class Settings:
     MAX_REQUESTS_PER_MINUTE: int
 
 
-def _read_number(environ: Mapping[str, str], name: str, default: str, kind: type[int] | type[float]) -> int | float:
+def _read_number(environ: Mapping[str, str], name: str, default: str, kind: type[int | float]) -> int | float:
     raw = environ.get(name, default).strip()
     try:
         return kind(raw)

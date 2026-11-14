@@ -4,7 +4,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 from daemon.dashboard.app import create_dashboard_app
 from daemon.dashboard.manager import DashboardRunManager
 from tests._helpers import cleanup_test_dir, make_client, make_test_dir

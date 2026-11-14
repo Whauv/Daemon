@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import subprocess
 
-
 ANSI_PATTERN = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
@@ -15,6 +14,7 @@ def run_command(command: str, workspace: str, timeout: int = 120) -> dict[str, s
     try:
         completed = subprocess.run(
             command,
+            check=False,  # Non-zero exit codes are returned to the caller, not raised.
             cwd=workspace,
             shell=True,
             text=True,
@@ -34,7 +34,8 @@ def run_command(command: str, workspace: str, timeout: int = 120) -> dict[str, s
             "stderr": _strip_ansi(stderr) or f"Command timed out after {timeout} seconds.",
             "exit_code": -1,
         }
-    except Exception as exc:
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        # OSError: missing cwd/shell; ValueError: e.g. NUL byte in the command.
         return {
             "stdout": "",
             "stderr": _strip_ansi(str(exc)),

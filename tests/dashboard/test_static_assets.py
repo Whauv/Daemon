@@ -20,7 +20,7 @@ class _AssetCollector(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
-        if "id" in attributes and attributes["id"]:
+        if attributes.get("id"):
             self.ids.append(attributes["id"])
         self.inline_handlers.extend(name for name in attributes if name.startswith("on"))
         if tag == "script":

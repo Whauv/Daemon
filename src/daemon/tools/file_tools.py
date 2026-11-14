@@ -26,7 +26,7 @@ def write_file(path: str, content: str, workspace: str) -> bool:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return True
-    except Exception:
+    except (ValueError, OSError):
         return False
 
 
@@ -35,7 +35,7 @@ def create_dir(path: str, workspace: str) -> bool:
         target = guard_workspace_path(path, workspace)
         target.mkdir(parents=True, exist_ok=True)
         return True
-    except Exception:
+    except (ValueError, OSError):
         return False
 
 
@@ -43,7 +43,7 @@ def read_file(path: str, workspace: str) -> str:
     try:
         target = guard_workspace_path(path, workspace)
         return target.read_text(encoding="utf-8")
-    except Exception as exc:
+    except (ValueError, OSError) as exc:
         return f"ERROR: {exc}"
 
 
@@ -63,5 +63,5 @@ def delete_file(path: str, workspace: str) -> bool:
             target.unlink()
             return True
         return False
-    except Exception:
+    except (ValueError, OSError):
         return False

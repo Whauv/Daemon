@@ -70,8 +70,9 @@ def main() -> None:
     console = _console()
     args = parse_args()
     if args.dashboard:
-        from daemon.dashboard.app import app as dashboard_app
         import uvicorn
+
+        from daemon.dashboard.app import app as dashboard_app
 
         dashboard_url = f"http://127.0.0.1:{args.dashboard_port}"
         console.print(f"[green]Starting dashboard on {dashboard_url}[/green]")

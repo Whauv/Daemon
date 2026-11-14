@@ -47,19 +47,18 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "same-origin",
 }
-DASHBOARD_CSP = "; ".join(
-    [
-        "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data:",
-        "connect-src 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-    ]
+DASHBOARD_CSP_DIRECTIVES = (
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
 )
+DASHBOARD_CSP = "; ".join(DASHBOARD_CSP_DIRECTIVES)
 
 # Module-level manager: routes look it up at call time so tests can patch it.
 manager = DashboardRunManager(workspace_root=Path(WORKSPACE_DIR))

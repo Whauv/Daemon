@@ -8,7 +8,6 @@ from daemon.core.groq_client import call_llm
 from daemon.core.state import PlanStep
 from daemon.ui.display import DaemonDisplay
 
-
 PLANNER_SYSTEM_PROMPT = """
 You are an expert software engineer and project planner.
 Given a task, you must return a JSON object with a single key "steps" containing an ordered array of steps to complete the task.
@@ -167,7 +166,7 @@ class Planner:
     @staticmethod
     def _is_activation_command(command: str) -> bool:
         lowered = command.lower().strip()
-        return lowered.endswith("\\scripts\\activate") or lowered.endswith("\\scripts\\activate.ps1")
+        return lowered.endswith(("\\scripts\\activate", "\\scripts\\activate.ps1"))
 
     @staticmethod
     def _normalize_command(command: str, project_dir: str) -> str:
@@ -184,7 +183,7 @@ class Planner:
             package_part = normalized[len("npm install") :].strip()
             return f"cmd /c \"cd {project_dir} && npm install {package_part}\""
 
-        if lowered.startswith("npm run dev") or lowered.startswith("npm start"):
+        if lowered.startswith(("npm run dev", "npm start")):
             return f"cmd /c \"cd {project_dir} && npm run build\""
 
         if lowered.startswith("npm run build"):
@@ -240,7 +239,7 @@ class Planner:
         if step.status != "pending":
             raise ValueError(f"Step {step.id} must start with status 'pending'.")
         if not isinstance(step.output, str):
-            raise ValueError(f"Step {step.id} output must be a string.")
+            raise TypeError(f"Step {step.id} output must be a string.")
 
     def _require_args(self, step: PlanStep, *keys: str) -> None:
         missing = [key for key in keys if key not in step.args or step.args[key] in ("", None)]

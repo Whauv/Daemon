@@ -52,7 +52,7 @@ class Executor:
             else:
                 step["status"] = "failed"
                 step["output"] = f"Failed to create directory: {relative_path}"
-        except Exception as exc:
+        except (ValueError, OSError) as exc:
             step["status"] = "failed"
             step["output"] = f"Failed to create directory {relative_path}: {exc}"
         return step
@@ -169,7 +169,8 @@ class Executor:
             payload = self.verifier.extract_json(content)
             regenerated = str(payload.get("content", "")).strip()
             return regenerated or existing_content
-        except Exception:
+        # Best-effort LLM call: any SDK, network, or malformed-JSON failure falls back to the original content.
+        except Exception:  # noqa: BLE001
             return existing_content
 
     def _suggest_fix_command(
@@ -199,7 +200,8 @@ class Executor:
             content = response["choices"][0]["message"]["content"]
             payload = self.verifier.extract_json(content)
             return str(payload.get("command", "")).strip()
-        except Exception:
+        # Best-effort LLM call: any failure means "no suggested fix", and the step fails normally.
+        except Exception:  # noqa: BLE001
             return ""
 
 

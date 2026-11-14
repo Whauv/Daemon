@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 from daemon.agents.executor import Executor
 from daemon.agents.planner import Planner
 from daemon.agents.verifier import Verifier
 from daemon.core.state import AgentState
 from daemon.ui.display import DaemonDisplay
-
 
 EventHandler = Callable[[dict[str, Any]], None]
 CancelHandler = Callable[[], bool]

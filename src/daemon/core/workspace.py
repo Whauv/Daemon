@@ -5,7 +5,6 @@ from pathlib import Path
 
 from daemon.core.errors import InvalidRequestError
 
-
 # Folders that hold tooling or runtime state rather than generated project code.
 IGNORED_WORKSPACE_DIRS = frozenset(
     {

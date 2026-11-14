@@ -11,7 +11,6 @@ from daemon.core.workspace import iter_project_files
 from daemon.tools.file_tools import read_file
 from daemon.tools.shell_tools import run_command
 
-
 API_TASK_PATTERN = re.compile(r"\b(fastapi|apis?)\b")
 FILE_STEP_TYPES = {"write_file", "create_dir"}
 
@@ -68,7 +67,8 @@ class Verifier:
                 json_output=True,
             )
             return self.extract_json(response["choices"][0]["message"]["content"])
-        except Exception as exc:
+        # Best-effort LLM call: any SDK, network, or malformed-JSON failure is reported as a failed verification.
+        except Exception as exc:  # noqa: BLE001
             return {
                 "success": False,
                 "summary": heuristic_result["summary"] or f"Task verification failed: {exc}",

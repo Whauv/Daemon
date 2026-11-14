@@ -8,6 +8,21 @@ from daemon.agents.verifier import Verifier
 from daemon.core.state import AgentState
 from tests._helpers import cleanup_test_dir, make_test_dir
 
+CRUD_APP = """\
+from fastapi import FastAPI
+from sqlalchemy import create_engine
+app = FastAPI()
+engine = create_engine('sqlite:///app.db')
+@app.get('/users/')
+def list_users(): return []
+@app.post('/users/')
+def create_user(): return {}
+@app.put('/users/{user_id}')
+def update_user(user_id: int): return {}
+@app.delete('/users/{user_id}')
+def delete_user(user_id: int): return {}
+"""
+
 
 class VerifierTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -17,25 +32,7 @@ class VerifierTests(unittest.TestCase):
         temp_dir = make_test_dir("verifier_fastapi")
         try:
             app_path = Path(temp_dir) / "app.py"
-            app_path.write_text(
-                "\n".join(
-                    [
-                        "from fastapi import FastAPI",
-                        "from sqlalchemy import create_engine",
-                        "app = FastAPI()",
-                        "engine = create_engine('sqlite:///app.db')",
-                        "@app.get('/users/')",
-                        "def list_users(): return []",
-                        "@app.post('/users/')",
-                        "def create_user(): return {}",
-                        "@app.put('/users/{user_id}')",
-                        "def update_user(user_id: int): return {}",
-                        "@app.delete('/users/{user_id}')",
-                        "def delete_user(user_id: int): return {}",
-                    ]
-                ),
-                encoding="utf-8",
-            )
+            app_path.write_text(CRUD_APP, encoding="utf-8")
             state = AgentState(task="create a FastAPI CRUD API with 4 endpoints and SQLite", workspace_dir=str(temp_dir))
 
             result = self.verifier.verify_task(state)

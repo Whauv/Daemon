@@ -4,7 +4,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 StepType = Literal["write_file", "run_command", "create_dir", "verify"]
 StepStatus = Literal["pending", "running", "done", "failed"]
 AgentStatus = Literal["planning", "executing", "verifying", "done", "failed", "cancelled"]

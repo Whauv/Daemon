@@ -7,14 +7,12 @@ from daemon.agents.verifier import Verifier
 from daemon.core.state import AgentState
 from tests._helpers import cleanup_test_dir, make_test_dir
 
-FASTAPI_APP = "\n".join(
-    [
-        "from fastapi import FastAPI",
-        "app = FastAPI()",
-        "@app.get('/items/')",
-        "def list_items(): return []",
-    ]
-)
+FASTAPI_APP = """\
+from fastapi import FastAPI
+app = FastAPI()
+@app.get('/items/')
+def list_items(): return []
+"""
 
 
 class VerifierScopeTests(unittest.TestCase):
