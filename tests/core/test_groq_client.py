@@ -102,9 +102,8 @@ class CallLlmRetryTests(unittest.TestCase):
 
     def test_non_rate_limit_error_is_not_retried(self) -> None:
         self.manager.client = _FakeClient([Exception("auth failed"), Exception("should not run")])
-        with patch.object(groq_client, "MAX_RETRIES", 3):
-            with self.assertRaises(RuntimeError):
-                self.manager.call_llm(messages=[{"role": "user", "content": "hi"}], system_prompt="s")
+        with patch.object(groq_client, "MAX_RETRIES", 3), self.assertRaises(RuntimeError):
+            self.manager.call_llm(messages=[{"role": "user", "content": "hi"}], system_prompt="s")
 
         self.assertEqual(self.manager.client.chat.completions.calls, 1)
 
