@@ -259,6 +259,3 @@ class Verifier:
     @staticmethod
     def extract_json(content: str) -> dict[str, Any]:
         return extract_json(content)
-
-
-TaskVerifier = Verifier

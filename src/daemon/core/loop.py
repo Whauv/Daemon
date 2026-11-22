@@ -59,6 +59,109 @@ def generate_plan_snapshot(task: str, workspace_dir: str) -> list[dict[str, Any]
     return planner.generate_plan(task=task, workspace_dir=workspace_dir)
 
 
+# Control-flow signals returned by the phase helpers to the main loop in ``run``.
+_PROCEED = "proceed"  # step finished; fall through to the verify check
+_CONTINUE = "continue"  # restart the loop (step was replanned or a patch was queued)
+_BREAK = "break"  # the run reached a terminal state
+
+
+def _run_planning(
+    planner: PlannerContract,
+    state: AgentState,
+    task: str,
+    display: DaemonDisplay | None,
+    event_handler: EventHandler | None,
+) -> None:
+    if display is not None:
+        display.show_banner()
+        display.show_status("Planning task...")
+    _emit(event_handler, {"type": "status", "message": "Planning task..."})
+    state.plan = planner.generate_plan(task, state.workspace_dir)
+    state.status = "executing"
+    if display is not None:
+        display.show_plan(state.plan, task_name=state.task)
+    _emit(event_handler, {"type": "plan", "task": state.task, "plan": state.plan})
+
+
+def _execute_current_step(
+    planner: PlannerContract,
+    executor: ExecutorContract,
+    state: AgentState,
+    display: DaemonDisplay | None,
+    event_handler: EventHandler | None,
+) -> str:
+    step = state.plan[state.current_step_index]
+    if display is not None:
+        display.show_step_start(step)
+    _emit(event_handler, {"type": "step_start", "step": step, "state": state.model_dump()})
+
+    updated_step = executor.execute_step(step, state)
+    state.plan[state.current_step_index] = updated_step
+
+    if updated_step["status"] == "failed":
+        state.retries += 1
+        if display is not None:
+            display.show_step_failed(updated_step)
+        _emit(
+            event_handler,
+            {"type": "step_failed", "step": updated_step, "retries": state.retries, "state": state.model_dump()},
+        )
+        if state.retries >= state.max_retries:
+            state.status = "failed"
+            if display is not None:
+                display.show_fatal_error("Max retries reached")
+            _emit(event_handler, {"type": "fatal", "message": "Max retries reached", "state": state.model_dump()})
+            return _BREAK
+
+        new_step = planner.replan_step(updated_step, state)
+        new_step["id"] = step["id"]
+        state.plan[state.current_step_index] = new_step
+        _emit(event_handler, {"type": "step_replanned", "step": new_step, "state": state.model_dump()})
+        return _CONTINUE
+
+    state.retries = 0
+    if display is not None:
+        display.show_step_done(updated_step)
+    _emit(event_handler, {"type": "step_done", "step": updated_step, "state": state.model_dump()})
+    state.current_step_index += 1
+    return _PROCEED
+
+
+def _verify_and_maybe_patch(
+    planner: PlannerContract,
+    verifier: VerifierContract,
+    state: AgentState,
+    display: DaemonDisplay | None,
+    event_handler: EventHandler | None,
+) -> str:
+    state.status = "verifying"
+    _emit(event_handler, {"type": "status", "message": "Verifying task...", "state": state.model_dump()})
+    result = verifier.verify_task(state)
+    if result["success"]:
+        state.status = "done"
+        if display is not None:
+            display.show_success(result["summary"])
+        _emit(event_handler, {"type": "success", "result": result, "state": state.model_dump()})
+        return _BREAK
+
+    if display is not None:
+        display.show_issues(result["issues"])
+    _emit(event_handler, {"type": "issues", "result": result, "state": state.model_dump()})
+    if state.retries < state.max_retries:
+        patch_plan = planner.generate_patch_plan(result["issues"], state)
+        if patch_plan:
+            state.plan.extend(patch_plan)
+            if display is not None:
+                display.show_plan(state.plan, task_name=state.task)
+            state.retries += 1
+            state.status = "executing"
+            _emit(event_handler, {"type": "patch_plan", "plan": state.plan, "state": state.model_dump()})
+            return _CONTINUE
+    state.status = "failed"
+    _emit(event_handler, {"type": "failed", "result": result, "state": state.model_dump()})
+    return _BREAK
+
+
 def run(
     task: str,
     workspace_dir: str,
@@ -78,15 +181,7 @@ def run(
     if max_retries is not None:
         state.max_retries = max_retries
 
-    if display is not None:
-        display.show_banner()
-        display.show_status("Planning task...")
-    _emit(event_handler, {"type": "status", "message": "Planning task..."})
-    state.plan = planner.generate_plan(task, state.workspace_dir)
-    state.status = "executing"
-    if display is not None:
-        display.show_plan(state.plan, task_name=state.task)
-    _emit(event_handler, {"type": "plan", "task": state.task, "plan": state.plan})
+    _run_planning(planner, state, task, display, event_handler)
 
     while state.current_step_index < len(state.plan):
         if should_cancel is not None and should_cancel():
@@ -94,40 +189,11 @@ def run(
             _emit(event_handler, {"type": "cancelled", "message": "Run cancelled before next step.", "state": state.model_dump()})
             break
 
-        step = state.plan[state.current_step_index]
-        if display is not None:
-            display.show_step_start(step)
-        _emit(event_handler, {"type": "step_start", "step": step, "state": state.model_dump()})
-
-        updated_step = executor.execute_step(step, state)
-        state.plan[state.current_step_index] = updated_step
-
-        if updated_step["status"] == "failed":
-            state.retries += 1
-            if display is not None:
-                display.show_step_failed(updated_step)
-            _emit(
-                event_handler,
-                {"type": "step_failed", "step": updated_step, "retries": state.retries, "state": state.model_dump()},
-            )
-            if state.retries >= state.max_retries:
-                state.status = "failed"
-                if display is not None:
-                    display.show_fatal_error("Max retries reached")
-                _emit(event_handler, {"type": "fatal", "message": "Max retries reached", "state": state.model_dump()})
-                break
-
-            new_step = planner.replan_step(updated_step, state)
-            new_step["id"] = step["id"]
-            state.plan[state.current_step_index] = new_step
-            _emit(event_handler, {"type": "step_replanned", "step": new_step, "state": state.model_dump()})
+        signal = _execute_current_step(planner, executor, state, display, event_handler)
+        if signal == _BREAK:
+            break
+        if signal == _CONTINUE:
             continue
-
-        state.retries = 0
-        if display is not None:
-            display.show_step_done(updated_step)
-        _emit(event_handler, {"type": "step_done", "step": updated_step, "state": state.model_dump()})
-        state.current_step_index += 1
 
         if should_cancel is not None and should_cancel():
             state.status = "cancelled"
@@ -135,42 +201,12 @@ def run(
             break
 
         if state.current_step_index >= len(state.plan) and state.status != "failed":
-            state.status = "verifying"
-            _emit(event_handler, {"type": "status", "message": "Verifying task...", "state": state.model_dump()})
-            result = verifier.verify_task(state)
-            if result["success"]:
-                state.status = "done"
-                if display is not None:
-                    display.show_success(result["summary"])
-                _emit(event_handler, {"type": "success", "result": result, "state": state.model_dump()})
+            signal = _verify_and_maybe_patch(planner, verifier, state, display, event_handler)
+            if signal == _BREAK:
                 break
-
-            if display is not None:
-                display.show_issues(result["issues"])
-            _emit(event_handler, {"type": "issues", "result": result, "state": state.model_dump()})
-            if state.retries < state.max_retries:
-                patch_plan = planner.generate_patch_plan(result["issues"], state)
-                if patch_plan:
-                    state.plan.extend(patch_plan)
-                    if display is not None:
-                        display.show_plan(state.plan, task_name=state.task)
-                    state.retries += 1
-                    state.status = "executing"
-                    _emit(event_handler, {"type": "patch_plan", "plan": state.plan, "state": state.model_dump()})
-                    continue
-            state.status = "failed"
-            _emit(event_handler, {"type": "failed", "result": result, "state": state.model_dump()})
-            break
+            if signal == _CONTINUE:
+                continue
 
     session_log = save_session_log(state, state.workspace_dir, session_log_path)
     _emit(event_handler, {"type": "session_saved", "path": str(session_log), "state": state.model_dump()})
     return state
-
-
-class DaemonLoop:
-    def __init__(self, display: DaemonDisplay | None = None, workspace: Path | None = None) -> None:
-        self.display = display or DaemonDisplay()
-        self.workspace = workspace or Path.cwd()
-
-    def run(self, task: str, max_iterations: int | None = None) -> AgentState:
-        return run(task=task, workspace_dir=str(self.workspace), max_retries=max_iterations, display=self.display)

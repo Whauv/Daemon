@@ -31,3 +31,25 @@ jobs:
         env:
           PYTHONPATH: src
         run: pytest -q
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        # ESLint is pinned in package.json: new releases can enable extra default
+        # rules and fail CI with no code change (same reason ruff is pinned above).
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Node tests
+        run: npm test

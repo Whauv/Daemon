@@ -14,7 +14,6 @@ except ImportError:  # pragma: no cover - python-dotenv is a declared dependency
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_DIR.parents[1]
-BASE_DIR = PACKAGE_DIR  # Backwards-compatible alias for the package directory.
 
 # The repository-root .env is the documented location. The package-level file is
 # still honoured for installs that relied on it. Existing environment variables
