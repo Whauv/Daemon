@@ -1,7 +1,7 @@
 // "Current run" panel: summary, progress, and the plan timeline.
 
 import { h, reconcile, renderEmpty, setData, setText } from "../dom.js";
-import { animateDisclosure, highlight } from "../motion.js";
+import { animateDisclosure, animateNumber, highlight, pulseBorder } from "../motion.js";
 import { basename, formatDateTime, isActive, shortId, statusTone } from "../format.js";
 
 export function createRunView() {
@@ -18,6 +18,7 @@ export function createRunView() {
   const progressLabel = document.getElementById("progress-label");
   const errorBox = document.getElementById("run-error");
   const planList = document.getElementById("plan-list");
+  const runPanel = document.getElementById("run-panel");
 
   renderEmpty(planList, "Start a run or open one from history to see its plan.");
 
@@ -83,7 +84,7 @@ export function createRunView() {
       const displayStatus = isCurrent && (step.status === "pending" || !step.status) ? "running" : step.status || "pending";
       return { step, displayStatus, isCurrent };
     });
-    reconcile(planList, rows, { key: (row) => row.step.id, create: createStep, update: updateStep });
+    reconcile(planList, rows, { key: (row) => row.step.id, create: createStep, update: updateStep, stagger: true });
   }
 
   function renderProgress(run) {
@@ -92,7 +93,7 @@ export function createRunView() {
     const total = plan.length;
     const ratio = total ? done / total : 0;
     progressFill.style.transform = `scaleX(${ratio})`;
-    setText(progressLabel, `${done} / ${total}`);
+    animateNumber(progressLabel, done, { format: (value) => `${value} / ${total}` });
     progressTrack.setAttribute("aria-valuemax", String(total));
     progressTrack.setAttribute("aria-valuenow", String(done));
     progressTrack.setAttribute("aria-valuetext", total ? `${done} of ${total} steps done` : "No steps yet");
@@ -108,6 +109,7 @@ export function createRunView() {
         taskLabel.dataset.empty = "true";
         for (const field of [metaRun, metaMode, metaWorkspace, metaRetries, metaStarted]) setText(field, "—");
         errorBox.hidden = true;
+        pulseBorder(runPanel, false);
         renderProgress(null);
         renderPlan(null);
         return;
@@ -120,10 +122,11 @@ export function createRunView() {
       setText(metaMode, run.dry_run ? "Dry run" : "Full run");
       setText(metaWorkspace, basename(run.workspace_dir));
       metaWorkspace.title = run.workspace_dir;
-      setText(metaRetries, `${run.state?.retries ?? 0} / ${run.max_retries}`);
+      animateNumber(metaRetries, run.state?.retries ?? 0, { format: (value) => `${value} / ${run.max_retries}` });
       setText(metaStarted, formatDateTime(run.created_at));
       errorBox.hidden = !run.error;
       setText(errorBox, run.error ? `Run error: ${run.error}` : "");
+      pulseBorder(runPanel, isActive(run.status));
       renderProgress(run);
       renderPlan(run);
     },

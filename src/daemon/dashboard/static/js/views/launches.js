@@ -1,6 +1,7 @@
 // Active and past launches of generated project servers.
 
 import { h, reconcile, renderEmpty, setData, setText } from "../dom.js";
+import { pulseBorder } from "../motion.js";
 import { formatDateTime } from "../format.js";
 
 function launchState(launch) {
@@ -31,6 +32,7 @@ export function createLaunchesView({ onStop, onRestart, onViewLog }) {
   function updateCard(node, launch) {
     const parts = node._parts;
     const state = launchState(launch);
+    pulseBorder(node, launch.running);
     setText(parts.title, launch.project_name);
     setText(parts.badge, state.label);
     setData(parts.badge, "tone", state.tone);

@@ -1,7 +1,7 @@
 // Live log: newest-first event list with filtering and copy-to-clipboard.
 
 import { h, reconcile, renderEmpty, setData, setText, uniqueKeys } from "../dom.js";
-import { animateDisclosure } from "../motion.js";
+import { animateDisclosure, animateNumber } from "../motion.js";
 import { eventMessage, eventMeta, formatTime } from "../format.js";
 
 export function createEventsView({ feedback }) {
@@ -42,7 +42,7 @@ export function createEventsView({ feedback }) {
   }
 
   function render() {
-    setText(countBadge, events.length ? String(events.length) : "");
+    animateNumber(countBadge, events.length, { format: (value) => (value ? String(value) : "") });
     if (!hasRun) {
       renderEmpty(list, "Start a run to stream its events here.");
       return;
@@ -58,7 +58,7 @@ export function createEventsView({ feedback }) {
       renderEmpty(list, filter ? "No events match this filter." : "Waiting for the first event…");
       return;
     }
-    reconcile(list, visible, { key: (row) => row.key, create: createEvent, update: updateEvent });
+    reconcile(list, visible, { key: (row) => row.key, create: createEvent, update: updateEvent, stagger: true });
   }
 
   filterInput.addEventListener("input", render);

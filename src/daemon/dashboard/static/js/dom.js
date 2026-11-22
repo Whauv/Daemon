@@ -2,6 +2,7 @@
 // output, file contents, and task text can never inject markup.
 
 import { enter, exit } from "./motion.js";
+import { staggerDelay } from "./motion-helpers.js";
 
 /**
  * Create an element. Props: `class`, `text`, `dataset`, `on<Event>` handlers,
@@ -60,16 +61,19 @@ export function renderSkeleton(container, rows = 3) {
  * open <details>, focus, and scroll position survive every poll. New nodes fade
  * in (only after the first population), removed nodes fade out.
  */
-export function reconcile(container, items, { key, create, update }) {
+export function reconcile(container, items, { key, create, update, stagger = false }) {
   container.setAttribute("aria-busy", "false");
   const existing = new Map();
   for (const child of [...container.children]) {
     if (child.dataset.key) existing.set(child.dataset.key, child);
     else if (!child.dataset.exiting) child.remove(); // empty states / skeletons
   }
-  const animateNew = existing.size > 0;
+  // Normally the first population appears instantly (no flash on load); with
+  // `stagger`, new rows fade-rise in sequence, including that first fill.
+  const animateNew = stagger || existing.size > 0;
   const seen = new Set();
   let previous = null;
+  let newCount = 0;
 
   items.forEach((item, index) => {
     const itemKey = String(key(item, index));
@@ -83,7 +87,8 @@ export function reconcile(container, items, { key, create, update }) {
     update(node, item, index);
     const expected = previous ? previous.nextSibling : container.firstChild;
     if (node !== expected) container.insertBefore(node, expected);
-    if (isNew && animateNew) enter(node);
+    if (isNew && animateNew) enter(node, stagger ? { delay: staggerDelay(newCount) } : {});
+    if (isNew) newCount += 1;
     previous = node;
   });
 
