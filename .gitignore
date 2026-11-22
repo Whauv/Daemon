@@ -16,3 +16,5 @@ build/
 .pytest_cache/
 .ruff_cache/
 pytest-cache-files-*/
+node_modules/
+npm-debug.log*

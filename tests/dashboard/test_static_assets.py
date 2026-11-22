@@ -70,6 +70,13 @@ class StaticAssetTests(unittest.TestCase):
     def test_dashboard_no_longer_shows_intro_overlay(self) -> None:
         self.assertNotIn("intro-overlay", self.collector.ids)
 
+    def test_vendored_animejs_module_is_served(self) -> None:
+        # motion.js imports anime.js from /static; it must be served (CSP script-src 'self')
+        # and revalidated like the other modules so updates never run stale.
+        response = self.client.get("/static/js/vendor/animejs/anime.esm.min.js")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("cache-control"), "no-cache")
+
 
 if __name__ == "__main__":
     unittest.main()

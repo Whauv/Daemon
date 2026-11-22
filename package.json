@@ -1,0 +1,16 @@
+{
+  "name": "daemon-dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frontend tests and linting for the Daemon dashboard.",
+  "scripts": {
+    "test": "node --test \"tests/js/**/*.test.js\"",
+    "lint": "eslint src/daemon/dashboard/static/js tests/js"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.15.0",
+    "animejs": "^4.5.0",
+    "eslint": "9.15.0"
+  }
+}

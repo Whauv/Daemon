@@ -175,10 +175,6 @@ class GroqClientManager:
             return True
         return "429" in str(error)
 
-    @staticmethod
-    def _extract_json(content: str) -> dict[str, Any]:
-        return extract_json(content)
-
 
 def call_llm(
     messages: list[dict[str, str]],
@@ -192,7 +188,3 @@ def call_llm(
         temperature=temperature,
         json_output=json_output,
     )
-
-
-def get_groq_client() -> GroqClientManager:
-    return GroqClientManager()

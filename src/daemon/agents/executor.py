@@ -203,6 +203,3 @@ class Executor:
         # Best-effort LLM call: any failure means "no suggested fix", and the step fails normally.
         except Exception:  # noqa: BLE001
             return ""
-
-
-StepExecutor = Executor

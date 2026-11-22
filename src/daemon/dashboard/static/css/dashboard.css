@@ -351,7 +351,7 @@ input:focus-visible {
     transform var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
 }
-.btn:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-4); }
+.btn:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-4); transform: translateY(-1px); }
 .btn:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
 .btn:disabled { opacity: 0.42; cursor: not-allowed; }
 .btn[aria-busy="true"] { cursor: progress; }
@@ -884,3 +884,44 @@ pre.output {
 }
 
 .toast a { color: var(--accent); text-underline-offset: 3px; }
+
+/* ----------------------------------------------------------- UI polish pass
+ * Harvested, in vanilla, from Motion-Primitives / Watermelon patterns:
+ * a live-surface border pulse, progressive-blur scroll edges, and row hover
+ * elevation. All are CSP-safe (external stylesheet) and reduced-motion-safe —
+ * the global block above neutralizes the keyframe animation, and `.is-live`
+ * keeps a static accent border when it does.
+ */
+
+/* "Border beam" (restrained): a live/running surface gets a slow accent pulse. */
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--accent-line), 0 0 16px -8px var(--accent-soft); }
+  50% { box-shadow: 0 0 0 1px var(--accent-line), 0 0 24px -2px rgba(191, 255, 0, 0.26); }
+}
+.is-live {
+  box-shadow: 0 0 0 1px var(--accent-line);
+  animation: live-pulse 2.4s var(--ease-out) infinite;
+}
+
+/* "Progressive blur": content fades at the scroll edges instead of hard-cutting. */
+.tab-panel,
+.history-list,
+.panel-fill > .timeline {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+
+/* Row hover elevation for the list/card surfaces. */
+.history-item,
+.card {
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
+}
+.history-item:hover,
+.card:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-3);
+  transform: translateY(-1px);
+}

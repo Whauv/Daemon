@@ -1,5 +1,5 @@
-from .executor import StepExecutor
-from .planner import TaskPlanner
-from .verifier import TaskVerifier
+from .executor import Executor
+from .planner import Planner
+from .verifier import Verifier
 
-__all__ = ["StepExecutor", "TaskPlanner", "TaskVerifier"]
+__all__ = ["Executor", "Planner", "Verifier"]
